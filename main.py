@@ -1,13 +1,17 @@
 import urllib.parse
+import math
 import pandas as pd
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from streamlit_geolocation import streamlit_geolocation
 
-# --- INISIALISASI SESSION STATE UNTUK TOMBOL "LAINNYA" ---
+# --- INISIALISASI SESSION STATE UNTUK PAGINATION & LIMIT ---
 if 'display_limit' not in st.session_state:
     st.session_state.display_limit = 3
+
+if 'jelajah_page' not in st.session_state:
+    st.session_state.jelajah_page = 1
 
 def reset_limit():
     st.session_state.display_limit = 3
@@ -15,10 +19,20 @@ def reset_limit():
 def load_more():
     st.session_state.display_limit += 3
 
+# Fungsi navigasi pagination untuk tab Jelajah
+def reset_jelajah_page():
+    st.session_state.jelajah_page = 1
+
+def prev_page():
+    st.session_state.jelajah_page -= 1
+
+def next_page():
+    st.session_state.jelajah_page += 1
+
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="FestiNesia - Jakarta Cultural Events", layout="wide")
 
-# 1. Load Dataset Pergelaran Seni & Budaya Jakarta (Tanpa Koordinat Manual)
+# 1. Load Dataset Pergelaran Seni & Budaya Jakarta
 @st.cache_data
 def load_data():
     file_path = 'data_penyelenggaraan_seni_budaya_5_kategori.xlsx'
@@ -128,11 +142,10 @@ if page == "Beranda":
                     st.write(f"📍 **Wilayah:** {wilayah_acara}")
                     st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
                     
-                    # Logika Penentuan Destinasi Google Maps (Lebih Sederhana)
                     if tempat_acara and tempat_acara.lower() != 'nan':
                         tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
                     else:
-                        tujuan_query = urllib.parse.quote_plus(wilayah_acara) # Fallback ke nama wilayah saja
+                        tujuan_query = urllib.parse.quote_plus(wilayah_acara)
                         
                     maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
                     st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
@@ -145,18 +158,50 @@ elif page == "Jelajah Event":
     st.title("Daftar Pergelaran Seni di Jakarta")
     
     wilayah_list = list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else []
-    selected_wilayah = st.selectbox("Pilih Wilayah", wilayah_list)
+    selected_wilayah = st.selectbox("Pilih Wilayah", wilayah_list, on_change=reset_jelajah_page)
     
     if selected_wilayah:
         filtered_res = df[df['wilayah'] == selected_wilayah]
-        st.write(f"Menampilkan **{len(filtered_res)}** acara di wilayah **{selected_wilayah}**:")
+        total_items = len(filtered_res)
         
-        for _, row in filtered_res.iterrows():
+        st.write(f"Menampilkan total **{total_items}** acara di wilayah **{selected_wilayah}**:")
+        
+        # --- LOGIKA PAGINATION ---
+        items_per_page = 10
+        total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
+        
+        # Pengaman nilai halaman agar tidak error
+        if st.session_state.jelajah_page > total_pages:
+            st.session_state.jelajah_page = total_pages
+        if st.session_state.jelajah_page < 1:
+            st.session_state.jelajah_page = 1
+            
+        start_idx = (st.session_state.jelajah_page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        
+        # Memotong dataframe sesuai halaman saat ini (maks 10 baris)
+        displayed_res = filtered_res.iloc[start_idx:end_idx]
+        
+        for _, row in displayed_res.iterrows():
             nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
             with st.expander(f"{nama_event} — {row.get('tempat_acara', 'Lokasi Acara')}"):
-                st.write(f"**Tanggal/Waktu:** {row.get('waktu', row.get('bulan', '-'))}")
+                st.write(f"**Tanggal:** {row.get('waktu', row.get('bulan', '-'))}")
                 st.write(f"**Jenis Kesenian:** {row.get('jenis_kesenian', '-')}")
                 st.write(f"**Wilayah:** {row.get('wilayah', '-')}")
+                
+        # --- KONTROL TOMBOL PAGINATION DI BAWAH ---
+        if total_pages > 1:
+            st.markdown("---")
+            col1, col2, col3 = st.columns([1, 2, 1])
+            
+            with col1:
+                st.button("⬅️ Sebelumnya", on_click=prev_page, disabled=(st.session_state.jelajah_page == 1), use_container_width=True)
+                
+            with col2:
+                st.markdown(f"<div style='text-align: center; padding-top: 10px;'><b>Halaman {st.session_state.jelajah_page} dari {total_pages}</b></div>", unsafe_allow_html=True)
+                
+            with col3:
+                st.button("Selanjutnya ➡️", on_click=next_page, disabled=(st.session_state.jelajah_page == total_pages), use_container_width=True)
 
 elif page == "AI Planner":
     st.title("AI Trip Planner - Jakarta Cultural Route")
@@ -172,7 +217,6 @@ elif page == "AI Planner":
         submitted = st.form_submit_button("Buat Rencana Kunjungan")
         
         if submitted:
-            # Gunakan lokasi deteksi jika ada, atau default ke Monas
             active_lat = st.session_state.get('user_lat', -6.1754) if 'user_lat' in st.session_state else -6.1754
             active_lng = st.session_state.get('user_lng', 106.8272) if 'user_lng' in st.session_state else 106.8272
             
