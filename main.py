@@ -51,11 +51,19 @@ def load_data():
         return pd.DataFrame()
 
     df.columns = [str(col).strip().lower() for col in df.columns]
+    
+    # Standarisasi kolom tanggal untuk filter rentang waktu
+    date_col = 'tanggal_kegiatan' if 'tanggal_kegiatan' in df.columns else ('waktu' if 'waktu' in df.columns else None)
+    if date_col:
+        df['parsed_date'] = pd.to_datetime(df[date_col], errors='coerce')
+    else:
+        df['parsed_date'] = pd.NaT
+        
     return df
 
 df = load_data()
 
-# 2. Fungsi Rekomendasi
+# 2. Fungsi Rekomendasi (Dengan Filter Rentang Waktu Max 1 Minggu untuk Multi-Event)
 def recommend_events(wilayah=None, keyword=""):
     filtered_df = df.copy()
     
@@ -81,6 +89,34 @@ def recommend_events(wilayah=None, keyword=""):
 
     return results
 
+def get_multi_event_package(results_df):
+    """Mengambil maksimal 3 event yang tanggalnya berdekatan (dalam rentang waktu maksimal 7 hari)"""
+    if results_df.empty:
+        return results_df
+        
+    # Urutkan berdasarkan tanggal jika ada
+    valid_dates = results_df.dropna(subset=['parsed_date']).sort_values(by='parsed_date')
+    invalid_dates = results_df[results_df['parsed_date'].isna()]
+    
+    sorted_df = pd.concat([valid_dates, invalid_dates])
+    
+    if len(sorted_df) <= 1:
+        return sorted_df.head(3)
+        
+    # Ambil baris pertama sebagai acuan tanggal utama
+    first_date = sorted_df.iloc[0]['parsed_date']
+    
+    if pd.isna(first_date):
+        return sorted_df.head(3)
+        
+    # Filter event lain yang selisih waktunya maksimal 7 hari dari event pertama
+    time_filtered = sorted_df[
+        (sorted_df['parsed_date'].isna()) | 
+        ((sorted_df['parsed_date'] - first_date).dt.days.abs() <= 7)
+    ]
+    
+    return time_filtered.head(3)
+
 # --- TAMPILAN FRONT-END STREAMLIT ---
 page = st.session_state.active_tab
 
@@ -103,7 +139,7 @@ if page == "Beranda":
             st.rerun()
             
     st.markdown("---")
-    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah, serta buat rute multi-event dalam sehari!")
+    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah, serta buat rute multi-event berdekatan dalam seminggu!")
 
 elif page == "Jelajah Event":
     if st.button("🏠 Kembali ke Beranda"):
@@ -203,8 +239,7 @@ elif page == "AI Planner":
             if results.empty:
                 st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
             else:
-                # Membagi tampilan menjadi sub-tab: Single Event & Multi-Event (Rute 1 Hari)
-                tab_single, tab_multi = st.tabs(["✨ Rekomendasi Single Event", "🗺️ Paket Multi-Event (1 Hari)"])
+                tab_single, tab_multi = st.tabs(["✨ Rekomendasi Single Event", "🗺️ Paket Multi-Event (Waktu Berdekatan)"])
                 
                 with tab_single:
                     displayed_results = results.head(3)
@@ -232,13 +267,10 @@ elif page == "AI Planner":
                             st.markdown("---")
                             
                 with tab_multi:
-                    st.write("### 🧭 Paket Kunjungan Multi-Event dalam 1 Hari")
-                    st.caption("Rangkaian 3 event di wilayah dan waktu yang berdekatan untuk dikunjungi sekaligus.")
+                    st.write("### 🧭 Paket Kunjungan Multi-Event (Rentang Waktu Maksimal 1 Minggu)")
+                    st.caption("Rangkaian 3 event di wilayah yang sama dengan jadwal pelaksanaan yang berdekatan.")
                     
-                    # Ambil hingga 3 event untuk dijadikan rute multi-stop
-                    multi_results = results.head(3)
-                    
-                    # Daftar titik tujuan (waypoints / destination sequence)
+                    multi_results = get_multi_event_package(results)
                     waypoints_query = []
                     
                     for i, (_, row) in enumerate(multi_results.iterrows(), 1):
@@ -255,10 +287,8 @@ elif page == "AI Planner":
                         st.write(f"&nbsp;&nbsp;&nbsp;&nbsp; 📅 *Tanggal:* {tanggal_val}")
                         
                     if len(waypoints_query) > 0:
-                        # Membuat link Google Maps dengan multiple destinations (Origin -> Event 1 -> Event 2 -> Event 3)
                         destination_final = urllib.parse.quote_plus(waypoints_query[-1])
                         
-                        # Jika ada lebih dari 1 event, jadikan event sebelumnya sebagai waypoints
                         if len(waypoints_query) > 1:
                             waypoints_list = "|".join([urllib.parse.quote_plus(wp) for wp in waypoints_query[:-1]])
                             multi_maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={destination_final}&waypoints={waypoints_list}"
