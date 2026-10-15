@@ -6,12 +6,18 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from streamlit_geolocation import streamlit_geolocation
 
-# --- INISIALISASI SESSION STATE UNTUK PAGINATION & LIMIT ---
+# --- INISIALISASI SESSION STATE UNTUK NAVIGASI & LIMIT ---
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = "Beranda"
+
 if 'display_limit' not in st.session_state:
     st.session_state.display_limit = 3
 
 if 'jelajah_page' not in st.session_state:
     st.session_state.jelajah_page = 1
+
+def set_tab(tab_name):
+    st.session_state.active_tab = tab_name
 
 def reset_limit():
     st.session_state.display_limit = 3
@@ -80,82 +86,33 @@ col_logo, col_nav = st.columns([2, 6])
 with col_logo:
     st.markdown("### 🌟 FestiNesia Jakarta")
 with col_nav:
-    page = st.radio("", ["Beranda", "Jelajah Event", "AI Planner"], horizontal=True)
+    page = st.radio("", ["Beranda", "Jelajah Event", "AI Planner"], horizontal=True, key="main_radio", on_change=lambda: set_tab(st.session_state.main_radio))
 
 st.divider()
 
-if page == "Beranda":
-    st.title("Pergelaran Seni & Budaya DKI Jakarta")
-    st.caption("Temukan pertunjukan seni, bazar budaya, dan festival lokal di sekitarmu.")
-    
-    st.subheader("📍 Deteksi Lokasi Real-Time")
-    location = streamlit_geolocation()
-    
-    user_lat, user_lng = None, None
-    if location and location.get('latitude') and location.get('longitude'):
-        user_lat = location['latitude']
-        user_lng = location['longitude']
-        st.success(f"Lokasi kamu terdeteksi: **{user_lat:.4f}, {user_lng:.4f}**")
-    else:
-        st.info("Klik tombol lokasi di atas agar Rute Google Maps mengarah dari posisimu saat ini.")
+# Sinkronisasi radio button dengan session state
+page = st.session_state.active_tab
 
-    with st.container():
-        c1, c2, c3 = st.columns([3, 2, 1])
-        with c1:
-            if 'jenis_kesenian' in df.columns:
-                jenis_kesenian_list = ["Semua"] + sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
-            else:
-                jenis_kesenian_list = ["Semua"]
-            keyword_input = st.selectbox("Pilih Minat / Jenis Kesenian", jenis_kesenian_list, on_change=reset_limit)
-        with c2:
-            wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else ["Semua"]
-            wilayah_input = st.selectbox("Wilayah Administrasi", wilayah_list, on_change=reset_limit)
-        with c3:
-            st.write("")
-            search_btn = st.button("Cari Event", use_container_width=True, on_click=reset_limit)
+if page == "Beranda":
+    st.title("Selamat Datang di FestiNesia Jakarta 🎭")
+    st.caption("Platform informasi pergelaran seni, budaya, dan festival lokal di wilayah DKI Jakarta.")
+    
+    st.markdown("---")
+    st.subheader("🚀 Navigasi Cepat")
+    st.write("Silakan pilih menu di bawah ini untuk mulai menjelajahi acara atau merencanakan perjalanan budayamu:")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("🗺️ Jelajah Semua Event", use_container_width=True):
+            st.session_state.active_tab = "Jelajah Event"
+            st.rerun()
+    with col_btn2:
+        if st.button("🤖 Buka AI Trip Planner", use_container_width=True):
+            st.session_state.active_tab = "AI Planner"
+            st.rerun()
             
-    if search_btn or keyword_input != "Semua":
-        selected_keyword = "" if keyword_input == "Semua" else keyword_input
-        active_lat = user_lat if user_lat else -6.1754
-        active_lng = user_lng if user_lng else 106.8272
-        
-        results = recommend_events(
-            wilayah=wilayah_input, 
-            keyword=selected_keyword
-        )
-        
-        st.subheader("Hasil Rekomendasi Event")
-        if results.empty:
-            st.warning("Tidak ditemukan event seni/budaya yang sesuai.")
-        else:
-            displayed_results = results.head(st.session_state.display_limit)
-            cols = st.columns(3)
-            for idx, (_, row) in enumerate(displayed_results.iterrows()):
-                with cols[idx % 3]:
-                    nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
-                    tempat_acara = str(row.get('tempat_acara', '')).strip()
-                    wilayah_acara = str(row.get('wilayah', 'DKI Jakarta')).strip()
-                    
-                    # Mengambil data tanggal dari kolom tanggal_kegiatan atau waktu
-                    tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
-                    
-                    st.info(f"**{nama_event}**")
-                    st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
-                    st.write(f"📍 **Wilayah:** {wilayah_acara}")
-                    st.write(f"📅 **Tanggal:** {tanggal_val}")
-                    st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
-                    
-                    if tempat_acara and tempat_acara.lower() != 'nan':
-                        tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
-                    else:
-                        tujuan_query = urllib.parse.quote_plus(wilayah_acara)
-                        
-                    maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
-                    st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
-                    st.markdown("---")
-            
-            if len(results) > st.session_state.display_limit:
-                st.button("Tampilkan Lainnya 👇", on_click=load_more, use_container_width=True)
+    st.markdown("---")
+    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah di Jakarta lengkap dengan rute Google Maps!")
 
 elif page == "Jelajah Event":
     st.title("Daftar Pergelaran Seni di Jakarta")
@@ -206,40 +163,67 @@ elif page == "Jelajah Event":
 
 elif page == "AI Planner":
     st.title("AI Trip Planner - Jakarta Cultural Route")
-    st.write("Rencanakan kunjungan ke tempat acara seni budaya di Jakarta berdasarkan minatmu.")
+    st.write("Rencanakan kunjungan ke tempat acara seni budaya di Jakarta berdasarkan minat dan lokasimu.")
     
+    st.subheader("📍 Deteksi Lokasi Real-Time")
+    location = streamlit_geolocation()
+    
+    user_lat, user_lng = None, None
+    if location and location.get('latitude') and location.get('longitude'):
+        user_lat = location['latitude']
+        user_lng = location['longitude']
+        st.success(f"Lokasi kamu terdeteksi: **{user_lat:.4f}, {user_lng:.4f}**")
+    else:
+        st.info("Klik tombol lokasi di atas agar Rute Google Maps mengarah dari posisimu saat ini.")
+
     with st.form("ai_form"):
-        if 'jenis_kesenian' in df.columns:
-            opsi_minat = sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
-        else:
-            opsi_minat = ["Semua"]
+        c1, c2 = st.columns(2)
+        with c1:
+            if 'jenis_kesenian' in df.columns:
+                jenis_kesenian_list = ["Semua"] + sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
+            else:
+                jenis_kesenian_list = ["Semua"]
+            minat_selected = st.selectbox("Pilih Jenis Kesenian / Minat:", jenis_kesenian_list)
+        with c2:
+            wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else ["Semua"]
+            wilayah_input = st.selectbox("Wilayah Administrasi", wilayah_list)
             
-        minat_selected = st.selectbox("Pilih jenis pertunjukan yang ingin kamu kunjungi:", opsi_minat)
-        submitted = st.form_submit_button("Buat Rencana Kunjungan")
+        submitted = st.form_submit_button("Buat Rencana Kunjungan", use_container_width=True)
         
         if submitted:
-            active_lat = st.session_state.get('user_lat', -6.1754) if 'user_lat' in st.session_state else -6.1754
-            active_lng = st.session_state.get('user_lng', 106.8272) if 'user_lng' in st.session_state else 106.8272
+            selected_keyword = "" if minat_selected == "Semua" else minat_selected
+            active_lat = user_lat if user_lat else -6.1754
+            active_lng = user_lng if user_lng else 106.8272
             
-            res = recommend_events(keyword=minat_selected).head(3)
+            results = recommend_events(
+                wilayah=wilayah_input, 
+                keyword=selected_keyword
+            )
+            
             st.success("Rekomendasi Berhasil Dibuat!")
-            for _, row in res.iterrows():
-                nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
-                tempat_acara = str(row.get('tempat_acara', '')).strip()
-                wilayah_acara = str(row.get('wilayah', 'DKI Jakarta')).strip()
-                tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
-                
-                if tempat_acara and tempat_acara.lower() != 'nan':
-                    tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
-                else:
-                    tujuan_query = urllib.parse.quote_plus(wilayah_acara)
-                    
-                maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
-                
-                st.markdown(
-                    f"- **{nama_event}**\n"
-                    f"  - 🏛️ Venue: *{tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}, {wilayah_acara}*\n"
-                    f"  - 📅 Tanggal: *{tanggal_val}*\n"
-                    f"  - 🎭 Kesenian: *{row.get('jenis_kesenian', '-')}*\n"
-                    f"  - [🗺️ Buka Rute di Google Maps]({maps_url})"
-                )
+            if results.empty:
+                st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
+            else:
+                displayed_results = results.head(3) # Menampilkan top 3 rekomendasi AI
+                cols = st.columns(3)
+                for idx, (_, row) in enumerate(displayed_results.iterrows()):
+                    with cols[idx % 3]:
+                        nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
+                        tempat_acara = str(row.get('tempat_acara', '')).strip()
+                        wilayah_acara = str(row.get('wilayah', 'DKI Jakarta')).strip()
+                        tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
+                        
+                        st.info(f"**{nama_event}**")
+                        st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
+                        st.write(f"📍 **Wilayah:** {wilayah_acara}")
+                        st.write(f"📅 **Tanggal:** {tanggal_val}")
+                        st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
+                        
+                        if tempat_acara and tempat_acara.lower() != 'nan':
+                            tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
+                        else:
+                            tujuan_query = urllib.parse.quote_plus(wilayah_acara)
+                            
+                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
+                        st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
+                        st.markdown("---")
