@@ -1,5 +1,7 @@
 streamlit
 pandas
+xlrd
+openpyxl
 scikit-learn
-streamlit-geolocation
 requests
+streamlit-geolocation
