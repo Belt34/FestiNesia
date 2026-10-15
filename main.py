@@ -10,20 +10,11 @@ from streamlit_geolocation import streamlit_geolocation
 if 'active_tab' not in st.session_state:
     st.session_state.active_tab = "Beranda"
 
-if 'display_limit' not in st.session_state:
-    st.session_state.display_limit = 3
-
 if 'jelajah_page' not in st.session_state:
     st.session_state.jelajah_page = 1
 
 def set_tab(tab_name):
     st.session_state.active_tab = tab_name
-
-def reset_limit():
-    st.session_state.display_limit = 3
-
-def load_more():
-    st.session_state.display_limit += 3
 
 def reset_jelajah_page():
     st.session_state.jelajah_page = 1
@@ -175,6 +166,14 @@ elif page == "AI Planner":
     else:
         st.info("Klik tombol lokasi di atas agar Rute Google Maps mengarah dari posisimu saat ini.")
 
+    # Menggunakan st.session_state untuk menyimpan hasil pencarian AI agar aman dari form rerun
+    if 'ai_results' not in st.session_state:
+        st.session_state.ai_results = None
+    if 'ai_lat' not in st.session_state:
+        st.session_state.ai_lat = -6.1754
+    if 'ai_lng' not in st.session_state:
+        st.session_state.ai_lng = 106.8272
+
     with st.form("ai_form"):
         c1, c2 = st.columns(2)
         with c1:
@@ -191,41 +190,40 @@ elif page == "AI Planner":
         
         if submitted:
             selected_keyword = "" if minat_selected == "Semua" else minat_selected
-            active_lat = user_lat if user_lat else -6.1754
-            active_lng = user_lng if user_lng else 106.8272
+            st.session_state.ai_lat = user_lat if user_lat else -6.1754
+            st.session_state.ai_lng = user_lng if user_lng else 106.8272
             
-            results = recommend_events(
+            st.session_state.ai_results = recommend_events(
                 wilayah=wilayah_input, 
                 keyword=selected_keyword
             )
-            
-            st.success("Rekomendasi Berhasil Dibuat!")
-            if results.empty:
-                st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
-            else:
-                displayed_results = results.head(st.session_state.display_limit)
-                cols = st.columns(3)
-                for idx, (_, row) in enumerate(displayed_results.iterrows()):
-                    with cols[idx % 3]:
-                        nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
-                        tempat_acara = str(row.get('tempat_acara', '')).strip()
-                        wilayah_acara = str(row.get('wilayah', 'Indonesia')).strip()
-                        tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
+
+    # Menampilkan hasil di luar form agar tombol/interaksi aman
+    if st.session_state.ai_results is not None:
+        st.success("Rekomendasi Berhasil Dibuat!")
+        if st.session_state.ai_results.empty:
+            st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
+        else:
+            displayed_results = st.session_state.ai_results.head(3)
+            cols = st.columns(3)
+            for idx, (_, row) in enumerate(displayed_results.iterrows()):
+                with cols[idx % 3]:
+                    nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
+                    tempat_acara = str(row.get('tempat_acara', '')).strip()
+                    wilayah_acara = str(row.get('wilayah', 'Indonesia')).strip()
+                    tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
+                    
+                    st.info(f"**{nama_event}**")
+                    st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
+                    st.write(f"📍 **Wilayah:** {wilayah_acara}")
+                    st.write(f"📅 **Tanggal:** {tanggal_val}")
+                    st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
+                    
+                    if tempat_acara and tempat_acara.lower() != 'nan':
+                        tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
+                    else:
+                        tujuan_query = urllib.parse.quote_plus(wilayah_acara)
                         
-                        st.info(f"**{nama_event}**")
-                        st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
-                        st.write(f"📍 **Wilayah:** {wilayah_acara}")
-                        st.write(f"📅 **Tanggal:** {tanggal_val}")
-                        st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
-                        
-                        if tempat_acara and tempat_acara.lower() != 'nan':
-                            tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
-                        else:
-                            tujuan_query = urllib.parse.quote_plus(wilayah_acara)
-                            
-                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
-                        st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
-                        st.markdown("---")
-                
-                if len(results) > st.session_state.display_limit:
-                    st.button("Tampilkan Lainnya 👇", on_click=load_more, use_container_width=True)
+                    maps_url = f"https://www.google.com/maps/dir/?api=1&origin={st.session_state.ai_lat},{st.session_state.ai_lng}&destination={tujuan_query}"
+                    st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
+                    st.markdown("---")
