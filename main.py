@@ -5,7 +5,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Konfigurasi Halaman Streamlit
-st.set_page_config(page_Title="FestiNesia", layout="wide")
+st.set_page_config(page_title="FestiNesia", layout="wide")
 
 # 1. Load Dataset
 @st.cache_data
