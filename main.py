@@ -1,4 +1,3 @@
-import math
 import urllib.parse
 import pandas as pd
 import streamlit as st
@@ -19,7 +18,7 @@ def load_more():
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="FestiNesia - Jakarta Cultural Events", layout="wide")
 
-# 1. Load Dataset Pergelaran Seni & Budaya Jakarta
+# 1. Load Dataset Pergelaran Seni & Budaya Jakarta (Tanpa Koordinat Manual)
 @st.cache_data
 def load_data():
     file_path = 'data_penyelenggaraan_seni_budaya_5_kategori.xlsx'
@@ -33,71 +32,12 @@ def load_data():
         return pd.DataFrame()
 
     df.columns = [str(col).strip().lower() for col in df.columns]
-
-    # Pemetaan Titik Spesifik
-    TEMPAT_COORDS = {
-        "TAMAN ISMAIL MARZUKI": (-6.1901, 106.8398),
-        "KAWASAN MONAS SISI UTARA": (-6.1754, 106.8272),
-        "PLAZA SISI SELATAN MONAS": (-6.1772, 106.8272),
-        "JAKARTA INTERNATIONAL EQUESTRIAN PARK PULOMAS": (-6.1883, 106.8875),
-        "ATRIUM LAGUNA DAN TRIBECA PARK": (-6.1783, 106.7925),
-        "BALAI PERTEMUAN BLOK G BALAIKOTA PROVINSI DKI JAKARTA": (-6.1831, 106.8267),
-        "BALAI AGUNG, BALAIKOTA PROVINSI DKI JAKARTA": (-6.1831, 106.8267),
-        "CANDI BENTAR ANCOL JAKARTA UTARA": (-6.1256, 106.8361),
-        "GELANGGANG KEC. TANJUNG PRIOK JAKARTA UTARA": (-6.1325, 106.8906),
-        "JCC SENAYAN": (-6.2163, 106.8016)
-    }
-
-    # Fallback Titik Pusat Wilayah
-    WILAYAH_COORDS = {
-        "JAKARTA PUSAT": (-6.1805, 106.8284),
-        "JAKARTA SELATAN": (-6.2615, 106.8106),
-        "JAKARTA BARAT": (-6.1683, 106.7588),
-        "JAKARTA TIMUR": (-6.2250, 106.9004),
-        "JAKARTA UTARA": (-6.1384, 106.8665),
-        "KAB. KEPULAUAN SERIBU": (-5.6140, 106.6223),
-        "KOTA BOGOR": (-6.5971, 106.7902),
-        "KABUPATEN BOGOR": (-6.5518, 106.6291),
-        "KOTA DEPOK": (-6.4025, 106.7942),
-        "KOTA TANGERANG": (-6.1702, 106.6403),
-        "KOTA TANGERANG SELATAN": (-6.2886, 106.7179),
-        "KOTA BEKASI": (-6.2383, 106.9756),
-        "KABUPATEN BEKASI": (-6.3642, 107.1722),
-        "DEFAULT": (-6.1754, 106.8272)
-    }
-
-    def get_lat(row):
-        tempat = str(row.get('tempat_acara', '')).strip().upper()
-        if tempat in TEMPAT_COORDS:
-            return TEMPAT_COORDS[tempat][0]
-        wilayah = str(row.get('wilayah', '')).strip().upper()
-        return WILAYAH_COORDS.get(wilayah, WILAYAH_COORDS["DEFAULT"])[0]
-
-    def get_lng(row):
-        tempat = str(row.get('tempat_acara', '')).strip().upper()
-        if tempat in TEMPAT_COORDS:
-            return TEMPAT_COORDS[tempat][1]
-        wilayah = str(row.get('wilayah', '')).strip().upper()
-        return WILAYAH_COORDS.get(wilayah, WILAYAH_COORDS["DEFAULT"])[1]
-
-    df['latitude'] = df.apply(get_lat, axis=1)
-    df['longitude'] = df.apply(get_lng, axis=1)
-    
     return df
 
 df = load_data()
 
-# 2. Perhitungan Jarak Garis Lurus (Sangat Cepat)
-def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371.0
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return round(R * c, 1)
-
-# 3. Fungsi Rekomendasi
-def recommend_events(user_lat=None, user_lng=None, wilayah=None, keyword=""):
+# 2. Fungsi Rekomendasi (Hanya Berdasarkan TF-IDF Keyword & Filter)
+def recommend_events(wilayah=None, keyword=""):
     filtered_df = df.copy()
     
     if wilayah and wilayah != "Semua":
@@ -105,9 +45,6 @@ def recommend_events(user_lat=None, user_lng=None, wilayah=None, keyword=""):
         
     if filtered_df.empty:
         return filtered_df
-
-    if user_lat is not None and user_lng is not None:
-        filtered_df['jarak_km'] = filtered_df.apply(lambda row: calculate_distance(user_lat, user_lng, row['latitude'], row['longitude']), axis=1)
 
     if keyword:
         nama_col = 'nama_kegiatan' if 'nama_kegiatan' in filtered_df.columns else filtered_df.columns[0]
@@ -119,15 +56,9 @@ def recommend_events(user_lat=None, user_lng=None, wilayah=None, keyword=""):
         query_vec = vectorizer.transform([keyword])
         filtered_df['score'] = cosine_similarity(query_vec, tfidf_matrix).flatten()
         
-        if user_lat is not None and user_lng is not None:
-            results = filtered_df.sort_values(by=['score', 'jarak_km'], ascending=[False, True])
-        else:
-            results = filtered_df.sort_values(by='score', ascending=False)
+        results = filtered_df.sort_values(by='score', ascending=False)
     else:
-        if user_lat is not None and user_lng is not None:
-            results = filtered_df.sort_values(by='jarak_km', ascending=True)
-        else:
-            results = filtered_df
+        results = filtered_df
 
     return results
 
@@ -142,7 +73,7 @@ st.divider()
 
 if page == "Beranda":
     st.title("Pergelaran Seni & Budaya DKI Jakarta")
-    st.caption("Temukan pertunjukan seni, bazar budaya, dan festival lokal terdekat dari lokasimu.")
+    st.caption("Temukan pertunjukan seni, bazar budaya, dan festival lokal di sekitarmu.")
     
     st.subheader("📍 Deteksi Lokasi Real-Time")
     location = streamlit_geolocation()
@@ -153,7 +84,7 @@ if page == "Beranda":
         user_lng = location['longitude']
         st.success(f"Lokasi kamu terdeteksi: **{user_lat:.4f}, {user_lng:.4f}**")
     else:
-        st.info("Klik tombol lokasi di atas untuk mengizinkan akses GPS real-time browser kamu.")
+        st.info("Klik tombol lokasi di atas agar Rute Google Maps mengarah dari posisimu saat ini.")
 
     with st.container():
         c1, c2, c3 = st.columns([3, 2, 1])
@@ -176,8 +107,6 @@ if page == "Beranda":
         active_lng = user_lng if user_lng else 106.8272
         
         results = recommend_events(
-            user_lat=active_lat, 
-            user_lng=active_lng, 
             wilayah=wilayah_input, 
             keyword=selected_keyword
         )
@@ -199,15 +128,11 @@ if page == "Beranda":
                     st.write(f"📍 **Wilayah:** {wilayah_acara}")
                     st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
                     
-                    if 'jarak_km' in row:
-                        st.caption(f"📏 Jarak: **{row['jarak_km']} km**")
-                    
-                    # Logika Penentuan Destinasi Google Maps
+                    # Logika Penentuan Destinasi Google Maps (Lebih Sederhana)
                     if tempat_acara and tempat_acara.lower() != 'nan':
-                        # Format URL menjadi nama tempat spesifik + wilayah
                         tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
                     else:
-                        tujuan_query = f"{row['latitude']},{row['longitude']}"
+                        tujuan_query = urllib.parse.quote_plus(wilayah_acara) # Fallback ke nama wilayah saja
                         
                     maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
                     st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
@@ -247,21 +172,21 @@ elif page == "AI Planner":
         submitted = st.form_submit_button("Buat Rencana Kunjungan")
         
         if submitted:
-            active_lat = user_lat if user_lat else -6.1754
-            active_lng = user_lng if user_lng else 106.8272
+            # Gunakan lokasi deteksi jika ada, atau default ke Monas
+            active_lat = st.session_state.get('user_lat', -6.1754) if 'user_lat' in st.session_state else -6.1754
+            active_lng = st.session_state.get('user_lng', 106.8272) if 'user_lng' in st.session_state else 106.8272
             
-            res = recommend_events(user_lat=active_lat, user_lng=active_lng, keyword=minat_selected).head(3)
+            res = recommend_events(keyword=minat_selected).head(3)
             st.success("Rekomendasi Berhasil Dibuat!")
             for _, row in res.iterrows():
                 nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
                 tempat_acara = str(row.get('tempat_acara', '')).strip()
                 wilayah_acara = str(row.get('wilayah', 'DKI Jakarta')).strip()
                 
-                # Logika Penentuan Destinasi Google Maps
                 if tempat_acara and tempat_acara.lower() != 'nan':
                     tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
                 else:
-                    tujuan_query = f"{row['latitude']},{row['longitude']}"
+                    tujuan_query = urllib.parse.quote_plus(wilayah_acara)
                     
                 maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
                 
@@ -269,5 +194,5 @@ elif page == "AI Planner":
                     f"- **{nama_event}**\n"
                     f"  - 🏛️ Venue: *{tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}, {wilayah_acara}*\n"
                     f"  - 🎭 Kesenian: *{row.get('jenis_kesenian', '-')}*\n"
-                    f"  - 📏 Jarak: *{row.get('jarak_km', 0)} km* — [Buka Rute di Google Maps]({maps_url})"
+                    f"  - [🗺️ Buka Rute di Google Maps]({maps_url})"
                 )
