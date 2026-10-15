@@ -35,9 +35,9 @@ def next_page():
     st.session_state.jelajah_page += 1
 
 # Konfigurasi Halaman Streamlit
-st.set_page_config(page_title="FestiNesia - Jakarta Cultural Events", layout="wide")
+st.set_page_config(page_title="FestiNesia - Cultural & Art Events", layout="wide")
 
-# 1. Load Dataset Pergelaran Seni & Budaya Jakarta
+# 1. Load Dataset Pergelaran Seni & Budaya
 @st.cache_data
 def load_data():
     file_path = 'data_penyelenggaraan_seni_budaya_5_kategori.xlsx'
@@ -82,20 +82,11 @@ def recommend_events(wilayah=None, keyword=""):
     return results
 
 # --- TAMPILAN FRONT-END STREAMLIT ---
-col_logo, col_nav = st.columns([2, 6])
-with col_logo:
-    st.markdown("### 🌟 FestiNesia Jakarta")
-with col_nav:
-    page = st.radio("", ["Beranda", "Jelajah Event", "AI Planner"], horizontal=True, key="main_radio", on_change=lambda: set_tab(st.session_state.main_radio))
-
-st.divider()
-
-# Sinkronisasi radio button dengan session state
 page = st.session_state.active_tab
 
 if page == "Beranda":
-    st.title("Selamat Datang di FestiNesia Jakarta 🎭")
-    st.caption("Platform informasi pergelaran seni, budaya, dan festival lokal di wilayah DKI Jakarta.")
+    st.title("Selamat Datang di FestiNesia 🎭")
+    st.caption("Platform informasi pergelaran seni, budaya, dan festival lokal.")
     
     st.markdown("---")
     st.subheader("🚀 Navigasi Cepat")
@@ -112,10 +103,14 @@ if page == "Beranda":
             st.rerun()
             
     st.markdown("---")
-    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah di Jakarta lengkap dengan rute Google Maps!")
+    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah lengkap dengan rute Google Maps!")
 
 elif page == "Jelajah Event":
-    st.title("Daftar Pergelaran Seni di Jakarta")
+    if st.button("🏠 Kembali ke Beranda"):
+        st.session_state.active_tab = "Beranda"
+        st.rerun()
+        
+    st.title("Daftar Pergelaran Seni & Budaya")
     
     wilayah_list = list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else []
     selected_wilayah = st.selectbox("Pilih Wilayah", wilayah_list, on_change=reset_jelajah_page)
@@ -162,8 +157,12 @@ elif page == "Jelajah Event":
                 st.button("Selanjutnya ➡️", on_click=next_page, disabled=(st.session_state.jelajah_page == total_pages), use_container_width=True)
 
 elif page == "AI Planner":
-    st.title("AI Trip Planner - Jakarta Cultural Route")
-    st.write("Rencanakan kunjungan ke tempat acara seni budaya di Jakarta berdasarkan minat dan lokasimu.")
+    if st.button("🏠 Kembali ke Beranda"):
+        st.session_state.active_tab = "Beranda"
+        st.rerun()
+        
+    st.title("AI Trip Planner - Cultural Route")
+    st.write("Rencanakan kunjungan ke tempat acara seni budaya berdasarkan minat dan lokasimu.")
     
     st.subheader("📍 Deteksi Lokasi Real-Time")
     location = streamlit_geolocation()
@@ -186,7 +185,7 @@ elif page == "AI Planner":
             minat_selected = st.selectbox("Pilih Jenis Kesenian / Minat:", jenis_kesenian_list)
         with c2:
             wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else ["Semua"]
-            wilayah_input = st.selectbox("Wilayah Administrasi", wilayah_list)
+            wilayah_input = st.selectbox("Wilayah / Kota", wilayah_list)
             
         submitted = st.form_submit_button("Buat Rencana Kunjungan", use_container_width=True)
         
@@ -204,13 +203,13 @@ elif page == "AI Planner":
             if results.empty:
                 st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
             else:
-                displayed_results = results.head(3) # Menampilkan top 3 rekomendasi AI
+                displayed_results = results.head(3)
                 cols = st.columns(3)
                 for idx, (_, row) in enumerate(displayed_results.iterrows()):
                     with cols[idx % 3]:
                         nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
                         tempat_acara = str(row.get('tempat_acara', '')).strip()
-                        wilayah_acara = str(row.get('wilayah', 'DKI Jakarta')).strip()
+                        wilayah_acara = str(row.get('wilayah', 'Indonesia')).strip()
                         tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
                         
                         st.info(f"**{nama_event}**")
