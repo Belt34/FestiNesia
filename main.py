@@ -79,6 +79,22 @@ if page == "Beranda":
     st.title("Selamat Datang di FestiNesia 🎭")
     st.caption("Platform informasi pergelaran seni, budaya, dan festival lokal.")
     
+    # Deskripsi Nilai Tambah Aplikasi & Konsep 3A Pariwisata
+    st.write(
+        """
+        **FestiNesia** adalah platform digital andalan untuk membantumu menemukan berbagai pertunjukan seni, 
+        festival budaya, dan pergelaran lokal secara praktis. 
+
+        Dirancang khusus untuk para pencinta seni dan penjelajah budaya, FestiNesia mengintegrasikan **Konsep 3A** 
+        pariwisata ke dalam genggamanmu:
+        - 🎭 **Atraksi:** Temukan beragam kurasi acara seni dan festival menarik.
+        - 📍 **Aksesibilitas:** Dapatkan rekomendasi terdekat dan navigasi rute instan langsung ke lokasi via Google Maps.
+        - 🛋️ **Amenitas:** Nikmati kemudahan eksplorasi fasilitas pendukung dan titik menarik di sekitar tempat acara secara langsung melalui peta.
+
+        Mulai jelajahi jadwal acara atau susun rencana perjalanan budayamu dengan mudah melalui menu navigasi di bawah ini!
+        """
+    )
+    
     st.markdown("---")
     st.subheader("🚀 Navigasi Cepat")
     st.write("Silakan pilih menu di bawah ini untuk mulai menjelajahi acara atau merencanakan perjalanan budayamu:")
@@ -89,12 +105,12 @@ if page == "Beranda":
             st.session_state.active_tab = "Jelajah Event"
             st.rerun()
     with col_btn2:
-        if st.button("🤖 Buka AI Trip Planner", use_container_width=True):
-            st.session_state.active_tab = "AI Planner"
+        if st.button("🧭 Buka Trip Planner", use_container_width=True):
+            st.session_state.active_tab = "Trip Planner"
             st.rerun()
             
     st.markdown("---")
-    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah lengkap dengan rute Google Maps!")
+    st.info("💡 **Tips:** Gunakan **Trip Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah lengkap dengan rute Google Maps!")
 
 elif page == "Jelajah Event":
     if st.button("🏠 Kembali ke Beranda"):
@@ -103,7 +119,6 @@ elif page == "Jelajah Event":
         
     st.title("Daftar Pergelaran Seni & Budaya")
     
-    # Mengubah pilihan dari Wilayah menjadi Jenis Kesenian
     if 'jenis_kesenian' in df.columns:
         kesenian_list = sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
     else:
@@ -152,12 +167,12 @@ elif page == "Jelajah Event":
             with col3:
                 st.button("Selanjutnya ➡️", on_click=next_page, disabled=(st.session_state.jelajah_page == total_pages), use_container_width=True)
 
-elif page == "AI Planner":
+elif page == "Trip Planner":
     if st.button("🏠 Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
         st.rerun()
         
-    st.title("AI Trip Planner - Cultural Route")
+    st.title("Trip Planner - Cultural Route")
     st.write("Rencanakan kunjungan ke tempat acara seni budaya berdasarkan minat dan lokasimu.")
     
     st.subheader("📍 Deteksi Lokasi Real-Time")
@@ -171,14 +186,14 @@ elif page == "AI Planner":
     else:
         st.info("Klik tombol lokasi di atas agar Rute Google Maps mengarah dari posisimu saat ini.")
 
-    if 'ai_results' not in st.session_state:
-        st.session_state.ai_results = None
-    if 'ai_lat' not in st.session_state:
-        st.session_state.ai_lat = -6.1754
-    if 'ai_lng' not in st.session_state:
-        st.session_state.ai_lng = 106.8272
+    if 'planner_results' not in st.session_state:
+        st.session_state.planner_results = None
+    if 'planner_lat' not in st.session_state:
+        st.session_state.planner_lat = -6.1754
+    if 'planner_lng' not in st.session_state:
+        st.session_state.planner_lng = 106.8272
 
-    with st.form("ai_form"):
+    with st.form("planner_form"):
         c1, c2 = st.columns(2)
         with c1:
             if 'jenis_kesenian' in df.columns:
@@ -194,20 +209,20 @@ elif page == "AI Planner":
         
         if submitted:
             selected_keyword = "" if minat_selected == "Semua" else minat_selected
-            st.session_state.ai_lat = user_lat if user_lat else -6.1754
-            st.session_state.ai_lng = user_lng if user_lng else 106.8272
+            st.session_state.planner_lat = user_lat if user_lat else -6.1754
+            st.session_state.planner_lng = user_lng if user_lng else 106.8272
             
-            st.session_state.ai_results = recommend_events(
+            st.session_state.planner_results = recommend_events(
                 wilayah=wilayah_input, 
                 keyword=selected_keyword
             )
 
-    if st.session_state.ai_results is not None:
-        st.success("Rekomendasi Berhasil Dibuat!")
-        if st.session_state.ai_results.empty:
+    if st.session_state.planner_results is not None:
+        st.success("Rencana Kunjungan Berhasil Dibuat!")
+        if st.session_state.planner_results.empty:
             st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
         else:
-            displayed_results = st.session_state.ai_results.head(3)
+            displayed_results = st.session_state.planner_results.head(3)
             cols = st.columns(3)
             for idx, (_, row) in enumerate(displayed_results.iterrows()):
                 with cols[idx % 3]:
@@ -227,6 +242,6 @@ elif page == "AI Planner":
                     else:
                         tujuan_query = urllib.parse.quote_plus(wilayah_acara)
                         
-                    maps_url = f"https://www.google.com/maps/dir/?api=1&origin={st.session_state.ai_lat},{st.session_state.ai_lng}&destination={tujuan_query}"
+                    maps_url = f"https://www.google.com/maps/dir/?api=1&origin={st.session_state.planner_lat},{st.session_state.planner_lng}&destination={tujuan_query}"
                     st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
                     st.markdown("---")
