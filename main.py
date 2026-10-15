@@ -134,7 +134,7 @@ elif page == "Jelajah":
     selected_prov = st.selectbox("Filter Berdasarkan Provinsi", df['provinsi'].dropna().unique())
     
     filtered_res = df[df['provinsi'] == selected_prov]
-    st.write(ampilkan {len(filtered_res)} event tersedia di {selected_prov}:)
+    st.write(f"Menampilkan {len(filtered_res)} event tersedia di {selected_prov}:")
     
     for _, row in filtered_res.iterrows():
         with st.expander(f"{row['nama_event']} ({row.get('bulan_mulai', 'Jadwal fleksibel')})"):
