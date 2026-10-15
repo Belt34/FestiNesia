@@ -103,7 +103,7 @@ if page == "Beranda":
             st.rerun()
             
     st.markdown("---")
-    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah lengkap dengan rute Google Maps!")
+    st.info("💡 **Tips:** Gunakan **AI Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah, serta buat rute multi-event dalam sehari!")
 
 elif page == "Jelajah Event":
     if st.button("🏠 Kembali ke Beranda"):
@@ -203,26 +203,67 @@ elif page == "AI Planner":
             if results.empty:
                 st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
             else:
-                displayed_results = results.head(3)
-                cols = st.columns(3)
-                for idx, (_, row) in enumerate(displayed_results.iterrows()):
-                    with cols[idx % 3]:
+                # Membagi tampilan menjadi sub-tab: Single Event & Multi-Event (Rute 1 Hari)
+                tab_single, tab_multi = st.tabs(["✨ Rekomendasi Single Event", "🗺️ Paket Multi-Event (1 Hari)"])
+                
+                with tab_single:
+                    displayed_results = results.head(3)
+                    cols = st.columns(3)
+                    for idx, (_, row) in enumerate(displayed_results.iterrows()):
+                        with cols[idx % 3]:
+                            nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
+                            tempat_acara = str(row.get('tempat_acara', '')).strip()
+                            wilayah_acara = str(row.get('wilayah', 'Indonesia')).strip()
+                            tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
+                            
+                            st.info(f"**{nama_event}**")
+                            st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
+                            st.write(f"📍 **Wilayah:** {wilayah_acara}")
+                            st.write(f"📅 **Tanggal:** {tanggal_val}")
+                            st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
+                            
+                            if tempat_acara and tempat_acara.lower() != 'nan':
+                                tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
+                            else:
+                                tujuan_query = urllib.parse.quote_plus(wilayah_acara)
+                                
+                            maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
+                            st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
+                            st.markdown("---")
+                            
+                with tab_multi:
+                    st.write("### 🧭 Paket Kunjungan Multi-Event dalam 1 Hari")
+                    st.caption("Rangkaian 3 event di wilayah dan waktu yang berdekatan untuk dikunjungi sekaligus.")
+                    
+                    # Ambil hingga 3 event untuk dijadikan rute multi-stop
+                    multi_results = results.head(3)
+                    
+                    # Daftar titik tujuan (waypoints / destination sequence)
+                    waypoints_query = []
+                    
+                    for i, (_, row) in enumerate(multi_results.iterrows(), 1):
                         nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
                         tempat_acara = str(row.get('tempat_acara', '')).strip()
                         wilayah_acara = str(row.get('wilayah', 'Indonesia')).strip()
                         tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
                         
-                        st.info(f"**{nama_event}**")
-                        st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
-                        st.write(f"📍 **Wilayah:** {wilayah_acara}")
-                        st.write(f"📅 **Tanggal:** {tanggal_val}")
-                        st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
+                        venue_str = tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else wilayah_acara
+                        waypoints_query.append(f"{venue_str}, {wilayah_acara}")
                         
-                        if tempat_acara and tempat_acara.lower() != 'nan':
-                            tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
+                        st.markdown(f"**{i}. {nama_event}**")
+                        st.write(f"&nbsp;&nbsp;&nbsp;&nbsp; 🏛️ *Venue:* {venue_str}")
+                        st.write(f"&nbsp;&nbsp;&nbsp;&nbsp; 📅 *Tanggal:* {tanggal_val}")
+                        
+                    if len(waypoints_query) > 0:
+                        # Membuat link Google Maps dengan multiple destinations (Origin -> Event 1 -> Event 2 -> Event 3)
+                        destination_final = urllib.parse.quote_plus(waypoints_query[-1])
+                        
+                        # Jika ada lebih dari 1 event, jadikan event sebelumnya sebagai waypoints
+                        if len(waypoints_query) > 1:
+                            waypoints_list = "|".join([urllib.parse.quote_plus(wp) for wp in waypoints_query[:-1]])
+                            multi_maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={destination_final}&waypoints={waypoints_list}"
                         else:
-                            tujuan_query = urllib.parse.quote_plus(wilayah_acara)
+                            multi_maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={destination_final}"
                             
-                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin={active_lat},{active_lng}&destination={tujuan_query}"
-                        st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
                         st.markdown("---")
+                        st.markdown(f"👉 **[🗺️ Buka Rute Lengkap Multi-Event di Google Maps]({multi_maps_url})**")
