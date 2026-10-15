@@ -9,22 +9,15 @@ from streamlit_geolocation import streamlit_geolocation
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="FestiNesia - Jakarta Cultural Events", layout="wide")
 
-# 1. Load Dataset Pergelaran Seni & Budaya Jakarta (Membaca Seluruh 9 Tab/Sheet Excel)
+# 1. Load Dataset Pergelaran Seni & Budaya Jakarta
 @st.cache_data
 def load_data():
     file_path = 'data_penyelenggaraan_seni_budaya_5_kategori.xlsx'
     
     try:
-        # Membaca seluruh tab/sheet sekaligus (sheet_name=None mengembalikan dictionary of DataFrames)
+        # Membaca seluruh tab/sheet sekaligus dan menggabungkannya
         excel_file = pd.read_excel(file_path, sheet_name=None)
-        
-        all_sheets = []
-        for sheet_name, sheet_df in excel_file.items():
-            # Tambahkan nama sheet sebagai kategori
-            sheet_df['kategori_sheet'] = str(sheet_name).strip()
-            all_sheets.append(sheet_df)
-            
-        # Gabungkan seluruh 9 tab menjadi satu DataFrame utama
+        all_sheets = [sheet_df for _, sheet_df in excel_file.items()]
         df = pd.concat(all_sheets, ignore_index=True)
     except Exception as e:
         st.error(f"Gagal membaca file dataset Excel: {e}")
@@ -97,14 +90,11 @@ def get_realtime_route(lat1, lon1, lat2, lon2):
     return calculate_haversine(lat1, lon1, lat2, lon2)
 
 # 4. Fungsi Rekomendasi Pergelaran Seni & Budaya
-def recommend_events(user_lat=None, user_lng=None, wilayah=None, kategori_tab=None, keyword="", top_n=6):
+def recommend_events(user_lat=None, user_lng=None, wilayah=None, keyword="", top_n=6):
     filtered_df = df.copy()
     
     if wilayah and wilayah != "Semua":
         filtered_df = filtered_df[filtered_df['wilayah'].astype(str).str.lower() == wilayah.lower()]
-    
-    if kategori_tab and kategori_tab != "Semua":
-        filtered_df = filtered_df[filtered_df['kategori_sheet'].astype(str) == str(kategori_tab)]
         
     if filtered_df.empty:
         return filtered_df
@@ -168,9 +158,9 @@ if page == "Beranda":
     else:
         st.info("Klik tombol lokasi di atas untuk mengizinkan akses GPS real-time browser kamu.")
 
-    # Form Input Pencarian Menggunakan Dropdown
+    # Form Input Pencarian Menggunakan Dropdown (Tanpa Tab)
     with st.container():
-        c1, c2, c3, c4 = st.columns([3, 2, 2, 1])
+        c1, c2, c3 = st.columns([3, 2, 1])
         with c1:
             if 'jenis_kesenian' in df.columns:
                 jenis_kesenian_list = ["Semua"] + sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
@@ -178,16 +168,13 @@ if page == "Beranda":
                 jenis_kesenian_list = ["Semua"]
             keyword_input = st.selectbox("Pilih Minat / Jenis Kesenian", jenis_kesenian_list)
         with c2:
-            tab_list = ["Semua"] + sorted(list(df['kategori_sheet'].dropna().unique()))
-            kategori_input = st.selectbox("Kategori / Tab Dataset", tab_list)
-        with c3:
             wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else ["Semua"]
             wilayah_input = st.selectbox("Wilayah Administrasi", wilayah_list)
-        with c4:
+        with c3:
             st.write("")
             search_btn = st.button("Cari Event", use_container_width=True)
             
-    if search_btn or keyword_input != "Semua" or kategori_input != "Semua":
+    if search_btn or keyword_input != "Semua":
         selected_keyword = "" if keyword_input == "Semua" else keyword_input
         active_lat = user_lat if user_lat else -6.1754
         active_lng = user_lng if user_lng else 106.8272
@@ -196,7 +183,6 @@ if page == "Beranda":
             user_lat=active_lat, 
             user_lng=active_lng, 
             wilayah=wilayah_input, 
-            kategori_tab=kategori_input,
             keyword=selected_keyword, 
             top_n=6
         )
@@ -210,7 +196,6 @@ if page == "Beranda":
                 with cols[idx % 3]:
                     nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
                     st.info(f"**{nama_event}**")
-                    st.write(f"📁 **Kategori Sheet:** {row.get('kategori_sheet', '-')}")
                     st.write(f"🏛️ **Tempat:** {row.get('tempat_acara', 'Jakarta')}")
                     st.write(f"📍 **Wilayah:** {row.get('wilayah', 'DKI Jakarta')}")
                     st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
@@ -220,18 +205,21 @@ if page == "Beranda":
                     st.markdown("---")
 
 elif page == "Jelajah Event":
-    st.title("Daftar Pergelaran Seni berdasarkan Tab Kategori")
-    selected_sheet = st.selectbox("Pilih Kategori Tab Dataset", df['kategori_sheet'].dropna().unique())
+    st.title("Daftar Pergelaran Seni di Jakarta")
     
-    filtered_res = df[df['kategori_sheet'] == selected_sheet]
-    st.write(f"Menampilkan **{len(filtered_res)}** acara pada kategori **{selected_sheet}**:")
+    wilayah_list = list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else []
+    selected_wilayah = st.selectbox("Pilih Wilayah", wilayah_list)
     
-    for _, row in filtered_res.iterrows():
-        nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
-        with st.expander(f"{nama_event} — {row.get('tempat_acara', 'Lokasi Acara')}"):
-            st.write(f"**Tanggal/Waktu:** {row.get('waktu', row.get('bulan', '-'))}")
-            st.write(f"**Jenis Kesenian:** {row.get('jenis_kesenian', '-')}")
-            st.write(f"**Wilayah:** {row.get('wilayah', '-')}")
+    if selected_wilayah:
+        filtered_res = df[df['wilayah'] == selected_wilayah]
+        st.write(f"Menampilkan **{len(filtered_res)}** acara di wilayah **{selected_wilayah}**:")
+        
+        for _, row in filtered_res.iterrows():
+            nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
+            with st.expander(f"{nama_event} — {row.get('tempat_acara', 'Lokasi Acara')}"):
+                st.write(f"**Tanggal/Waktu:** {row.get('waktu', row.get('bulan', '-'))}")
+                st.write(f"**Jenis Kesenian:** {row.get('jenis_kesenian', '-')}")
+                st.write(f"**Wilayah:** {row.get('wilayah', '-')}")
 
 elif page == "AI Planner":
     st.title("AI Trip Planner - Jakarta Cultural Route")
@@ -256,7 +244,6 @@ elif page == "AI Planner":
                 nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
                 st.markdown(
                     f"- **{nama_event}**\n"
-                    f"  - 📁 Kategori: *{row.get('kategori_sheet', '-')}*\n"
                     f"  - 🏛️ Venue: *{row.get('tempat_acara', '-')}, {row.get('wilayah', '-')}*\n"
                     f"  - 🎭 Kesenian: *{row.get('jenis_kesenian', '-')}*\n"
                     f"  - 🚗 Estimasi Jarak: *{row.get('jarak_km', 0)} km ({row.get('estimasi_waktu', '-')})*"
