@@ -9,20 +9,29 @@ from streamlit_geolocation import streamlit_geolocation
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="FestiNesia - Jakarta Cultural Events", layout="wide")
 
-# 1. Load Dataset Pergelaran Seni & Budaya Jakarta (Format HTML/Tabel)
+# 1. Load Dataset Pergelaran Seni & Budaya Jakarta (Membaca Seluruh 9 Tab/Sheet Excel)
 @st.cache_data
 def load_data():
-    file_path = 'data-penyelenggaraan-pergelaran-seni-dan-budaya-komponen-data.xls'
+    file_path = 'data_penyelenggaraan_seni_budaya_5_kategori.xlsx'
     
     try:
-        dfs = pd.read_html(file_path, flavor='lxml')
-        df = dfs[0]
-    except Exception:
-        try:
-            dfs = pd.read_html(file_path, flavor='html5lib')
-            df = dfs[0]
-        except Exception:
-            df = pd.read_csv(file_path, encoding='utf-8', on_bad_lines='skip')
+        # Membaca seluruh tab/sheet sekaligus (sheet_name=None mengembalikan dictionary of DataFrames)
+        excel_file = pd.read_excel(file_path, sheet_name=None)
+        
+        all_sheets = []
+        for sheet_name, sheet_df in excel_file.items():
+            # Tambahkan nama sheet sebagai kategori
+            sheet_df['kategori_sheet'] = str(sheet_name).strip()
+            all_sheets.append(sheet_df)
+            
+        # Gabungkan seluruh 9 tab menjadi satu DataFrame utama
+        df = pd.concat(all_sheets, ignore_index=True)
+    except Exception as e:
+        st.error(f"Gagal membaca file dataset Excel: {e}")
+        return pd.DataFrame()
+
+    # Membersihkan nama kolom agar seragam (lowercase & hapus spasi berlebih)
+    df.columns = [str(col).strip().lower() for col in df.columns]
 
     # Pemetaan Titik Koordinat Presisi Berdasarkan 'tempat_acara' Spesifik di Jakarta
     TEMPAT_COORDS = {
@@ -34,13 +43,11 @@ def load_data():
         "BALAI PERTEMUAN BLOK G BALAIKOTA PROVINSI DKI JAKARTA": (-6.1831, 106.8267),
         "BALAI AGUNG, BALAIKOTA PROVINSI DKI JAKARTA": (-6.1831, 106.8267),
         "CANDI BENTAR ANCOL JAKARTA UTARA": (-6.1256, 106.8361),
-        "GELANGGANG KEC. TANJUNG PRIOK JAKARTA UTARA": (-6.1325, 106.8906)
+        "GELANGGANG KEC. TANJUNG PRIOK JAKARTA UTARA": (-6.1325, 106.8906),
+        "JCC SENAYAN": (-6.2163, 106.8016)
     }
 
     DEFAULT_COORD = (-6.1754, 106.8272)
-
-    # Membersihkan nama kolom agar seragam (lowercase)
-    df.columns = [str(col).strip().lower() for col in df.columns]
 
     if 'tempat_acara' in df.columns:
         df['tempat_acara_clean'] = df['tempat_acara'].astype(str).str.strip().str.upper()
@@ -90,14 +97,14 @@ def get_realtime_route(lat1, lon1, lat2, lon2):
     return calculate_haversine(lat1, lon1, lat2, lon2)
 
 # 4. Fungsi Rekomendasi Pergelaran Seni & Budaya
-def recommend_events(user_lat=None, user_lng=None, wilayah=None, bulan=None, keyword="", top_n=6):
+def recommend_events(user_lat=None, user_lng=None, wilayah=None, kategori_tab=None, keyword="", top_n=6):
     filtered_df = df.copy()
     
     if wilayah and wilayah != "Semua":
         filtered_df = filtered_df[filtered_df['wilayah'].astype(str).str.lower() == wilayah.lower()]
     
-    if bulan and bulan != "Semua":
-        filtered_df = filtered_df[filtered_df['bulan'].astype(str) == str(bulan)]
+    if kategori_tab and kategori_tab != "Semua":
+        filtered_df = filtered_df[filtered_df['kategori_sheet'].astype(str) == str(kategori_tab)]
         
     if filtered_df.empty:
         return filtered_df
@@ -113,7 +120,11 @@ def recommend_events(user_lat=None, user_lng=None, wilayah=None, bulan=None, key
         filtered_df['estimasi_waktu'] = times
 
     if keyword:
-        search_corpus = filtered_df['nama_kegiatan'].fillna('') + " " + filtered_df['jenis_kesenian'].fillna('')
+        # Menggabungkan nama kegiatan dan jenis kesenian jika kolomnya ada
+        nama_col = 'nama_kegiatan' if 'nama_kegiatan' in filtered_df.columns else filtered_df.columns[0]
+        jenis_col = 'jenis_kesenian' if 'jenis_kesenian' in filtered_df.columns else nama_col
+        
+        search_corpus = filtered_df[nama_col].fillna('') + " " + filtered_df[jenis_col].fillna('')
         vectorizer = TfidfVectorizer()
         tfidf_matrix = vectorizer.fit_transform(search_corpus)
         query_vec = vectorizer.transform([keyword])
@@ -159,18 +170,24 @@ if page == "Beranda":
 
     # Form Input Pencarian Menggunakan Dropdown
     with st.container():
-        c1, c2, c3 = st.columns([3, 2, 1])
+        c1, c2, c3, c4 = st.columns([3, 2, 2, 1])
         with c1:
-            jenis_kesenian_list = ["Semua"] + sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
+            if 'jenis_kesenian' in df.columns:
+                jenis_kesenian_list = ["Semua"] + sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
+            else:
+                jenis_kesenian_list = ["Semua"]
             keyword_input = st.selectbox("Pilih Minat / Jenis Kesenian", jenis_kesenian_list)
         with c2:
-            wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique())
-            wilayah_input = st.selectbox("Wilayah Administrasi", wilayah_list)
+            tab_list = ["Semua"] + sorted(list(df['kategori_sheet'].dropna().unique()))
+            kategori_input = st.selectbox("Kategori / Tab Dataset", tab_list)
         with c3:
+            wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else ["Semua"]
+            wilayah_input = st.selectbox("Wilayah Administrasi", wilayah_list)
+        with c4:
             st.write("")
             search_btn = st.button("Cari Event", use_container_width=True)
             
-    if search_btn or keyword_input != "Semua":
+    if search_btn or keyword_input != "Semua" or kategori_input != "Semua":
         selected_keyword = "" if keyword_input == "Semua" else keyword_input
         active_lat = user_lat if user_lat else -6.1754
         active_lng = user_lng if user_lng else 106.8272
@@ -179,6 +196,7 @@ if page == "Beranda":
             user_lat=active_lat, 
             user_lng=active_lng, 
             wilayah=wilayah_input, 
+            kategori_tab=kategori_input,
             keyword=selected_keyword, 
             top_n=6
         )
@@ -190,7 +208,9 @@ if page == "Beranda":
             cols = st.columns(3)
             for idx, (_, row) in enumerate(results.iterrows()):
                 with cols[idx % 3]:
-                    st.info(f"**{row['nama_kegiatan']}**")
+                    nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
+                    st.info(f"**{nama_event}**")
+                    st.write(f"📁 **Kategori Sheet:** {row.get('kategori_sheet', '-')}")
                     st.write(f"🏛️ **Tempat:** {row.get('tempat_acara', 'Jakarta')}")
                     st.write(f"📍 **Wilayah:** {row.get('wilayah', 'DKI Jakarta')}")
                     st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
@@ -200,15 +220,16 @@ if page == "Beranda":
                     st.markdown("---")
 
 elif page == "Jelajah Event":
-    st.title("Daftar Pergelaran Seni di Jakarta")
-    selected_wilayah = st.selectbox("Pilih Wilayah", df['wilayah'].dropna().unique())
+    st.title("Daftar Pergelaran Seni berdasarkan Tab Kategori")
+    selected_sheet = st.selectbox("Pilih Kategori Tab Dataset", df['kategori_sheet'].dropna().unique())
     
-    filtered_res = df[df['wilayah'] == selected_wilayah]
-    st.write(f"Menampilkan **{len(filtered_res)}** acara di {selected_wilayah}:")
+    filtered_res = df[df['kategori_sheet'] == selected_sheet]
+    st.write(f"Menampilkan **{len(filtered_res)}** acara pada kategori **{selected_sheet}**:")
     
     for _, row in filtered_res.iterrows():
-        with st.expander(f"{row['nama_kegiatan']} — {row.get('tempat_acara', 'Lokasi Acara')}"):
-            st.write(f"**Tanggal/Waktu:** {row.get('waktu', '-')}")
+        nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
+        with st.expander(f"{nama_event} — {row.get('tempat_acara', 'Lokasi Acara')}"):
+            st.write(f"**Tanggal/Waktu:** {row.get('waktu', row.get('bulan', '-'))}")
             st.write(f"**Jenis Kesenian:** {row.get('jenis_kesenian', '-')}")
             st.write(f"**Wilayah:** {row.get('wilayah', '-')}")
 
@@ -217,9 +238,12 @@ elif page == "AI Planner":
     st.write("Rencanakan kunjungan ke tempat acara seni budaya di Jakarta berdasarkan minatmu.")
     
     with st.form("ai_form"):
-        opsi_minat = sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
+        if 'jenis_kesenian' in df.columns:
+            opsi_minat = sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
+        else:
+            opsi_minat = ["Semua"]
+            
         minat_selected = st.selectbox("Pilih jenis pertunjukan yang ingin kamu kunjungi:", opsi_minat)
-        
         submitted = st.form_submit_button("Buat Rencana Kunjungan")
         
         if submitted:
@@ -229,8 +253,10 @@ elif page == "AI Planner":
             res = recommend_events(user_lat=active_lat, user_lng=active_lng, keyword=minat_selected, top_n=3)
             st.success("Rekomendasi Berhasil Dibuat!")
             for _, row in res.iterrows():
+                nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
                 st.markdown(
-                    f"- **{row['nama_kegiatan']}**\n"
+                    f"- **{nama_event}**\n"
+                    f"  - 📁 Kategori: *{row.get('kategori_sheet', '-')}*\n"
                     f"  - 🏛️ Venue: *{row.get('tempat_acara', '-')}, {row.get('wilayah', '-')}*\n"
                     f"  - 🎭 Kesenian: *{row.get('jenis_kesenian', '-')}*\n"
                     f"  - 🚗 Estimasi Jarak: *{row.get('jarak_km', 0)} km ({row.get('estimasi_waktu', '-')})*"
