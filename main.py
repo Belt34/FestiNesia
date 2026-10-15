@@ -19,7 +19,6 @@ def reset_limit():
 def load_more():
     st.session_state.display_limit += 3
 
-# Fungsi navigasi pagination untuk tab Jelajah
 def reset_jelajah_page():
     st.session_state.jelajah_page = 1
 
@@ -50,7 +49,7 @@ def load_data():
 
 df = load_data()
 
-# 2. Fungsi Rekomendasi (Hanya Berdasarkan TF-IDF Keyword & Filter)
+# 2. Fungsi Rekomendasi
 def recommend_events(wilayah=None, keyword=""):
     filtered_df = df.copy()
     
@@ -137,9 +136,13 @@ if page == "Beranda":
                     tempat_acara = str(row.get('tempat_acara', '')).strip()
                     wilayah_acara = str(row.get('wilayah', 'DKI Jakarta')).strip()
                     
+                    # Mengambil data tanggal dari kolom tanggal_kegiatan atau waktu
+                    tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
+                    
                     st.info(f"**{nama_event}**")
                     st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
                     st.write(f"📍 **Wilayah:** {wilayah_acara}")
+                    st.write(f"📅 **Tanggal:** {tanggal_val}")
                     st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
                     
                     if tempat_acara and tempat_acara.lower() != 'nan':
@@ -166,11 +169,9 @@ elif page == "Jelajah Event":
         
         st.write(f"Menampilkan total **{total_items}** acara di wilayah **{selected_wilayah}**:")
         
-        # --- LOGIKA PAGINATION ---
         items_per_page = 10
         total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
         
-        # Pengaman nilai halaman agar tidak error
         if st.session_state.jelajah_page > total_pages:
             st.session_state.jelajah_page = total_pages
         if st.session_state.jelajah_page < 1:
@@ -179,17 +180,17 @@ elif page == "Jelajah Event":
         start_idx = (st.session_state.jelajah_page - 1) * items_per_page
         end_idx = start_idx + items_per_page
         
-        # Memotong dataframe sesuai halaman saat ini (maks 10 baris)
         displayed_res = filtered_res.iloc[start_idx:end_idx]
         
         for _, row in displayed_res.iterrows():
             nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
+            tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
+            
             with st.expander(f"{nama_event} — {row.get('tempat_acara', 'Lokasi Acara')}"):
-                st.write(f"**Tanggal:** {row.get('waktu', row.get('bulan', '-'))}")
+                st.write(f"**Tanggal:** {tanggal_val}")
                 st.write(f"**Jenis Kesenian:** {row.get('jenis_kesenian', '-')}")
                 st.write(f"**Wilayah:** {row.get('wilayah', '-')}")
                 
-        # --- KONTROL TOMBOL PAGINATION DI BAWAH ---
         if total_pages > 1:
             st.markdown("---")
             col1, col2, col3 = st.columns([1, 2, 1])
@@ -226,6 +227,7 @@ elif page == "AI Planner":
                 nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
                 tempat_acara = str(row.get('tempat_acara', '')).strip()
                 wilayah_acara = str(row.get('wilayah', 'DKI Jakarta')).strip()
+                tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
                 
                 if tempat_acara and tempat_acara.lower() != 'nan':
                     tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
@@ -237,6 +239,7 @@ elif page == "AI Planner":
                 st.markdown(
                     f"- **{nama_event}**\n"
                     f"  - 🏛️ Venue: *{tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}, {wilayah_acara}*\n"
+                    f"  - 📅 Tanggal: *{tanggal_val}*\n"
                     f"  - 🎭 Kesenian: *{row.get('jenis_kesenian', '-')}*\n"
                     f"  - [🗺️ Buka Rute di Google Maps]({maps_url})"
                 )
