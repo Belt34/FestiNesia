@@ -103,14 +103,19 @@ elif page == "Jelajah Event":
         
     st.title("Daftar Pergelaran Seni & Budaya")
     
-    wilayah_list = list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else []
-    selected_wilayah = st.selectbox("Pilih Wilayah", wilayah_list, on_change=reset_jelajah_page)
+    # Mengubah pilihan dari Wilayah menjadi Jenis Kesenian
+    if 'jenis_kesenian' in df.columns:
+        kesenian_list = sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
+    else:
+        kesenian_list = []
+        
+    selected_kesenian = st.selectbox("Pilih Jenis Kesenian", kesenian_list, on_change=reset_jelajah_page)
     
-    if selected_wilayah:
-        filtered_res = df[df['wilayah'] == selected_wilayah]
+    if selected_kesenian:
+        filtered_res = df[df['jenis_kesenian'].astype(str).str.strip() == selected_kesenian]
         total_items = len(filtered_res)
         
-        st.write(f"Menampilkan total **{total_items}** acara di wilayah **{selected_wilayah}**:")
+        st.write(f"Menampilkan total **{total_items}** acara dengan jenis kesenian **{selected_kesenian}**:")
         
         items_per_page = 10
         total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
@@ -166,7 +171,6 @@ elif page == "AI Planner":
     else:
         st.info("Klik tombol lokasi di atas agar Rute Google Maps mengarah dari posisimu saat ini.")
 
-    # Menggunakan st.session_state untuk menyimpan hasil pencarian AI agar aman dari form rerun
     if 'ai_results' not in st.session_state:
         st.session_state.ai_results = None
     if 'ai_lat' not in st.session_state:
@@ -198,7 +202,6 @@ elif page == "AI Planner":
                 keyword=selected_keyword
             )
 
-    # Menampilkan hasil di luar form agar tombol/interaksi aman
     if st.session_state.ai_results is not None:
         st.success("Rekomendasi Berhasil Dibuat!")
         if st.session_state.ai_results.empty:
