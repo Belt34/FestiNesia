@@ -6,30 +6,50 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from streamlit_geolocation import streamlit_geolocation
 
-st.set_page_config(page_title="FestiNesia", layout="wide")
+# Konfigurasi Halaman Streamlit
+st.set_page_config(page_title="FestiNesia - Jakarta Cultural Events", layout="wide")
 
-# 1. Load Dataset
+# 1. Load Dataset Pergelaran Seni & Budaya Jakarta
 @st.cache_data
 def load_data():
-    df = pd.read_csv('KEN_2026_Event_Kemenpar.csv')
+    # Menggunakan dataset lokal dari Satu Data Jakarta
+    file_path = 'data-penyelenggaraan-pergelaran-seni-dan-budaya-komponen-data.xls'
     
-    KOTA_COORDS = {
-        "Kota Banda Aceh": (5.5483, 95.3238),
-        "Kota Medan": (3.5952, 98.6722),
-        "Kab. Samosir": (2.6053, 98.7186),
-        "Kota Pariaman": (-0.6264, 100.1189),
-        "Kota Bandung": (-6.9175, 107.6191),
-        "Kota Jakarta Pusat": (-6.1805, 106.8284)
+    try:
+        if file_path.endswith('.xls') or file_path.endswith('.xlsx'):
+            df = pd.read_excel(file_path)
+        else:
+            df = pd.read_csv(file_path)
+    except Exception:
+        # Fallback jika file dibaca sebagai CSV biasa
+        df = pd.read_csv('data-penyelenggaraan-pergelaran-seni-dan-budaya-komponen-data.csv')
+
+    # Pemetaan Titik Koordinat Presisi Berdasarkan 'tempat_acara' Spesifik di Jakarta
+    TEMPAT_COORDS = {
+        "Taman Ismail Marzuki": (-6.1901, 106.8398),
+        "Kawasan Monas Sisi Utara": (-6.1754, 106.8272),
+        "Plaza Sisi Selatan Monas": (-6.1772, 106.8272),
+        "Jakarta International Equestrian Park Pulomas": (-6.1883, 106.8875),
+        "Atrium Laguna dan Tribeca Park": (-6.1783, 106.7925),
+        "Balai Pertemuan Blok G Balaikota Provinsi DKI Jakarta": (-6.1831, 106.8267),
+        "Balai Agung, Balaikota Provinsi DKI Jakarta": (-6.1831, 106.8267),
+        "Candi Bentar Ancol Jakarta Utara": (-6.1256, 106.8361),
+        "Gelanggang Kec. Tanjung Priok Jakarta Utara": (-6.1325, 106.8906)
     }
+
+    # Koordinat Pusat Jakarta (Monas) sebagai Fallback default jika venue belum terdaftar
+    DEFAULT_COORD = (-6.1754, 106.8272)
+
+    # Menambahkan kolom latitude dan longitude berdasarkan lokasi tempat acara
+    df['latitude'] = df['tempat_acara'].map(lambda x: TEMPAT_COORDS.get(str(x).strip(), DEFAULT_COORD)[0])
+    df['longitude'] = df['tempat_acara'].map(lambda x: TEMPAT_COORDS.get(str(x).strip(), DEFAULT_COORD)[1])
     
-    df['latitude'] = df['kabupaten_kota'].map(lambda x: KOTA_COORDS.get(x, (-6.1805, 106.8284))[0])
-    df['longitude'] = df['kabupaten_kota'].map(lambda x: KOTA_COORDS.get(x, (-6.1805, 106.8284))[1])
     return df
 
 df = load_data()
 
-# 2. Perhitungan Jarak Haversine (Fallback jika OSRM gagal/offline)
-def calculate_haversine(lat1, lon1, lat2, lon2, avg_speed_kmh=50):
+# 2. Perhitungan Jarak Haversine (Cadangan jika API Rute OSRM offline)
+def calculate_haversine(lat1, lon1, lat2, lon2, avg_speed_kmh=30):
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -45,7 +65,6 @@ def calculate_haversine(lat1, lon1, lat2, lon2, avg_speed_kmh=50):
 
 # 3. Perhitungan Jarak Rute Jalan Raya Real-Time via OSRM API
 def get_realtime_route(lat1, lon1, lat2, lon2):
-    # Format OSRM: /driving/{longitude1},{latitude1};{longitude2},{latitude2}
     url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
     try:
         response = requests.get(url, timeout=3)
@@ -62,20 +81,24 @@ def get_realtime_route(lat1, lon1, lat2, lon2):
     except Exception:
         pass
     
-    # Jika API OSRM error/timeout, gunakan rumus Haversine sebagai cadangan
     return calculate_haversine(lat1, lon1, lat2, lon2)
 
-# 4. Fungsi Rekomendasi Festival
-def recommend_festivals(user_lat=None, user_lng=None, provinsi=None, bulan=None, keyword="", top_n=5):
+# 4. Fungsi Rekomendasi Pergelaran Seni & Budaya
+def recommend_events(user_lat=None, user_lng=None, wilayah=None, bulan=None, keyword="", top_n=6):
     filtered_df = df.copy()
-    if provinsi:
-        filtered_df = filtered_df[filtered_df['provinsi'].str.lower() == provinsi.lower()]
-    if bulan:
-        filtered_df = filtered_df[filtered_df['bulan_mulai'].str.lower() == bulan.lower()]
     
+    # Filter Wilayah Jakarta (misal: Jakarta Pusat, Jakarta Selatan)
+    if wilayah and wilayah != "Semua":
+        filtered_df = filtered_df[filtered_df['wilayah'].astype(str).str.lower() == wilayah.lower()]
+    
+    # Filter Bulan
+    if bulan and bulan != "Semua":
+        filtered_df = filtered_df[filtered_df['bulan'].astype(str) == str(bulan)]
+        
     if filtered_df.empty:
         return filtered_df
 
+    # Hitung Jarak Real-Time menuju 'tempat_acara'
     if user_lat is not None and user_lng is not None:
         distances = []
         times = []
@@ -86,16 +109,18 @@ def recommend_festivals(user_lat=None, user_lng=None, provinsi=None, bulan=None,
         filtered_df['jarak_km'] = distances
         filtered_df['estimasi_waktu'] = times
 
+    # Rekomendasi TF-IDF berdasarkan 'nama_kegiatan' dan 'jenis_kesenian'
     if keyword:
+        # Menggabungkan nama kegiatan dan jenis kesenian untuk pencarian teks yang lebih kaya
+        search_corpus = filtered_df['nama_kegiatan'].fillna('') + " " + filtered_df['jenis_kesenian'].fillna('')
         vectorizer = TfidfVectorizer()
-        tfidf_matrix = vectorizer.fit_transform(filtered_df['nama_event'])
+        tfidf_matrix = vectorizer.fit_transform(search_corpus)
         query_vec = vectorizer.transform([keyword])
         similarity_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
         filtered_df['score'] = similarity_scores
-        filtered_df['score'] += filtered_df['top_10_ken'].apply(lambda x: 0.2 if x == 'Ya' else 0.0)
         
         if user_lat is not None and user_lng is not None:
-            results = filtered_df.sort_values(by=['jarak_km', 'score'], ascending=[True, False])
+            results = filtered_df.sort_values(by=['score', 'jarak_km'], ascending=[False, True])
         else:
             results = filtered_df.sort_values(by='score', ascending=False)
     else:
@@ -106,60 +131,100 @@ def recommend_festivals(user_lat=None, user_lng=None, provinsi=None, bulan=None,
 
     return results.head(top_n)
 
-# --- FRONT-END STREAMLIT ---
+# --- TAMPILAN FRONT-END STREAMLIT ---
 col_logo, col_nav = st.columns([2, 6])
 with col_logo:
-    st.markdown("### 🌟 FestiNesia")
+    st.markdown("### 🌟 FestiNesia Jakarta")
 with col_nav:
-    page = st.radio("", ["Beranda", "Jelajah", "AI Planner"], horizontal=True)
+    page = st.radio("", ["Beranda", "Jelajah Event", "AI Planner"], horizontal=True)
 
 st.divider()
 
 if page == "Beranda":
-    st.title("Temukan Festival, Jelajahi Indonesia.")
-    st.caption("Platform wisata budaya berbasis AI untuk membantu kamu menemukan festival dan destinasi terbaik.")
+    st.title("Pergelaran Seni & Budaya DKI Jakarta")
+    st.caption("Temukan pertunjukan seni, bazar budaya, dan festival lokal terdekat dari lokasimu.")
     
     # Widget Geolocation Browser Real-Time
-    st.subheader("📍 Dapatkan Lokasi Real-Time Kamu")
+    st.subheader("📍 Deteksi Lokasi Real-Time")
     location = streamlit_geolocation()
     
     user_lat, user_lng = None, None
     if location and location.get('latitude') and location.get('longitude'):
         user_lat = location['latitude']
         user_lng = location['longitude']
-        st.success(f"Lokasi terdeteksi: {user_lat:.4f}, {user_lng:.4f}")
+        st.success(f"Lokasi kamu terdeteksi: **{user_lat:.4f}, {user_lng:.4f}**")
     else:
-        st.info("Klik tombol di atas untuk membagikan lokasi GPS kamu.")
+        st.info("Klik tombol lokasi di atas untuk mengizinkan akses GPS real-time browser kamu.")
 
-    # Input Pencarian Cepat
+    # Form Input Pencarian
     with st.container():
         c1, c2, c3 = st.columns([3, 2, 1])
         with c1:
-            keyword_input = st.text_input("Cari Berdasarkan Minat / Nama Event", placeholder="Misal: Music, Coffee, Budaya...")
+            keyword_input = st.text_input("Cari Minat / Jenis Kesenian", placeholder="Misal: Ondel-Ondel, Musik, Talkshow, Tari...")
         with c2:
-            provinsi_input = st.selectbox("Provinsi (Opsional)", ["Semua"] + list(df['provinsi'].dropna().unique()))
+            wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique())
+            wilayah_input = st.selectbox("Wilayah Administrasi", wilayah_list)
         with c3:
             st.write("")
             search_btn = st.button("Cari Event", use_container_width=True)
             
     if search_btn or keyword_input:
-        prov_filter = None if provinsi_input == "Semua" else provinsi_input
+        # Default Fallback ke Monas jika pengguna belum mengizinkan akses lokasi GPS
+        active_lat = user_lat if user_lat else -6.1754
+        active_lng = user_lng if user_lng else 106.8272
         
-        # Fallback jika user belum klik tombol lokasi: Gunakan koordinat default Medan
-        active_lat = user_lat if user_lat else 3.5952
-        active_lng = user_lng if user_lng else 98.6722
+        results = recommend_events(
+            user_lat=active_lat, 
+            user_lng=active_lng, 
+            wilayah=wilayah_input, 
+            keyword=keyword_input, 
+            top_n=6
+        )
         
-        results = recommend_festivals(user_lat=active_lat, user_lng=active_lng, provinsi=prov_filter, keyword=keyword_input, top_n=6)
-        
-        st.subheader("Hasil Pencarian Festival")
+        st.subheader("Hasil Rekomendasi Event")
         if results.empty:
-            st.warning("Tidak ditemukan event yang sesuai.")
+            st.warning("Tidak ditemukan event seni/budaya yang sesuai.")
         else:
             cols = st.columns(3)
             for idx, (_, row) in enumerate(results.iterrows()):
                 with cols[idx % 3]:
-                    st.info(f"**{row['nama_event']}**")
-                    st.write(f"📍 {row['kabupaten_kota']}, {row['provinsi']}")
+                    st.info(f"**{row['nama_kegiatan']}**")
+                    st.write(f"🏛️ **Tempat:** {row.get('tempat_acara', 'Jakarta')}")
+                    st.write(f"📍 **Wilayah:** {row.get('wilayah', 'DKI Jakarta')}")
+                    st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
+                    
                     if 'jarak_km' in row:
                         st.caption(f"🚗 Rute Jalan: **{row['jarak_km']} km** ({row['estimasi_waktu']})")
                     st.markdown("---")
+
+elif page == "Jelajah Event":
+    st.title("Daftar Pergelaran Seni di Jakarta")
+    selected_wilayah = st.selectbox("Pilih Wilayah", df['wilayah'].dropna().unique())
+    
+    filtered_res = df[df['wilayah'] == selected_wilayah]
+    st.write(f"Menampilkan **{len(filtered_res)}** acara di {selected_wilayah}:")
+    
+    for _, row in filtered_res.iterrows():
+        with st.expander(f"{row['nama_kegiatan']} — {row.get('tempat_acara', 'Lokasi Acara')}"):
+            st.write(f"**Tanggal/Waktu:** {row.get('waktu', '-')}")
+            st.write(f"**Jenis Kesenian:** {row.get('jenis_kesenian', '-')}")
+            st.write(f"**Wilayah:** {row.get('wilayah', '-')}")
+
+elif page == "AI Planner":
+    st.title("AI Trip Planner - Jakarta Cultural Route")
+    st.write("Rencanakan kunjungan ke tempat acara seni budaya di Jakarta berdasarkan minatmu.")
+    
+    with st.form("ai_form"):
+        minat = st.text_input("Apa jenis pertunjukan yang ingin kamu kunjungi?", value="Ondel-Ondel")
+        submitted = st.form_submit_button("Buat Rencana Kunjungan")
+        
+        if submitted:
+            # Gunakan koordinat default Jakarta jika geolocation belum aktif
+            res = recommend_events(user_lat=-6.1754, user_lng=106.8272, keyword=minat, top_n=3)
+            st.success("Rekomendasi Berhasil Dibuat!")
+            for _, row in res.iterrows():
+                st.markdown(
+                    f"- **{row['nama_kegiatan']}**\n"
+                    f"  - 🏛️ Venue: *{row.get('tempat_acara', '-')}, {row.get('wilayah', '-')}*\n"
+                    f"  - 🚗 Estimasi Jarak: *{row.get('jarak_km', 0)} km ({row.get('estimasi_waktu', '-')})*"
+                )
