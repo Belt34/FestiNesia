@@ -4,7 +4,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # 1. Load Dataset
-df = pd.read_csv('/KEN_2026_Event_Kemenpar.csv')
+df = pd.read_csv('KEN_2026_Event_Kemenpar.csv')
 
 # --- MOCK DATA COORDINATES (Tambahkan kolom lat & lng ke dataset) ---
 # Pada praktik nyata, koordinat ini bisa kamu peroleh melalui proses Geocoding.
