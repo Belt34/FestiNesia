@@ -9,40 +9,42 @@ from streamlit_geolocation import streamlit_geolocation
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="FestiNesia - Jakarta Cultural Events", layout="wide")
 
-# 1. Load Dataset Pergelaran Seni & Budaya Jakarta
+# 1. Load Dataset Pergelaran Seni & Budaya Jakarta (Format HTML/XLS)
 @st.cache_data
 def load_data():
-    # Menggunakan dataset lokal dari Satu Data Jakarta
     file_path = 'data-penyelenggaraan-pergelaran-seni-dan-budaya-komponen-data.xls'
     
     try:
-        if file_path.endswith('.xls') or file_path.endswith('.xlsx'):
-            df = pd.read_excel(file_path)
-        else:
-            df = pd.read_csv(file_path)
+        # Karena file berformat HTML tabel, gunakan read_html
+        dfs = pd.read_html(file_path)
+        df = dfs[0] # Ambil tabel pertama
     except Exception:
-        # Fallback jika file dibaca sebagai CSV biasa
-        df = pd.read_csv('data-penyelenggaraan-pergelaran-seni-dan-budaya-komponen-data.csv')
+        # Fallback cadangan jika formatnya diubah menjadi CSV standar
+        df = pd.read_csv(file_path)
 
     # Pemetaan Titik Koordinat Presisi Berdasarkan 'tempat_acara' Spesifik di Jakarta
     TEMPAT_COORDS = {
-        "Taman Ismail Marzuki": (-6.1901, 106.8398),
-        "Kawasan Monas Sisi Utara": (-6.1754, 106.8272),
-        "Plaza Sisi Selatan Monas": (-6.1772, 106.8272),
-        "Jakarta International Equestrian Park Pulomas": (-6.1883, 106.8875),
-        "Atrium Laguna dan Tribeca Park": (-6.1783, 106.7925),
-        "Balai Pertemuan Blok G Balaikota Provinsi DKI Jakarta": (-6.1831, 106.8267),
-        "Balai Agung, Balaikota Provinsi DKI Jakarta": (-6.1831, 106.8267),
-        "Candi Bentar Ancol Jakarta Utara": (-6.1256, 106.8361),
-        "Gelanggang Kec. Tanjung Priok Jakarta Utara": (-6.1325, 106.8906)
+        "TAMAN ISMAIL MARZUKI": (-6.1901, 106.8398),
+        "KAWASAN MONAS SISI UTARA": (-6.1754, 106.8272),
+        "PLAZA SISI SELATAN MONAS": (-6.1772, 106.8272),
+        "JAKARTA INTERNATIONAL EQUESTRIAN PARK PULOMAS": (-6.1883, 106.8875),
+        "ATRIUM LAGUNA DAN TRIBECA PARK": (-6.1783, 106.7925),
+        "BALAI PERTEMUAN BLOK G BALAIKOTA PROVINSI DKI JAKARTA": (-6.1831, 106.8267),
+        "BALAI AGUNG, BALAIKOTA PROVINSI DKI JAKARTA": (-6.1831, 106.8267),
+        "CANDI BENTAR ANCOL JAKARTA UTARA": (-6.1256, 106.8361),
+        "GELANGGANG KEC. TANJUNG PRIOK JAKARTA UTARA": (-6.1325, 106.8906),
+        "JCC SENAYAN": (-6.2163, 106.8016),
+        "BALAIKOTA PROVINSI DKI JAKARTA": (-6.1831, 106.8267)
     }
 
-    # Koordinat Pusat Jakarta (Monas) sebagai Fallback default jika venue belum terdaftar
     DEFAULT_COORD = (-6.1754, 106.8272)
 
-    # Menambahkan kolom latitude dan longitude berdasarkan lokasi tempat acara
-    df['latitude'] = df['tempat_acara'].map(lambda x: TEMPAT_COORDS.get(str(x).strip(), DEFAULT_COORD)[0])
-    df['longitude'] = df['tempat_acara'].map(lambda x: TEMPAT_COORDS.get(str(x).strip(), DEFAULT_COORD)[1])
+    # Ubah nama kolom menjadi huruf kapital semua untuk menghindari mismatch teks
+    df['tempat_acara'] = df['tempat_acara'].astype(str).str.strip().str.upper()
+    df['wilayah'] = df['wilayah'].astype(str).str.strip().str.upper()
+
+    df['latitude'] = df['tempat_acara'].map(lambda x: TEMPAT_COORDS.get(x, DEFAULT_COORD)[0])
+    df['longitude'] = df['tempat_acara'].map(lambda x: TEMPAT_COORDS.get(x, DEFAULT_COORD)[1])
     
     return df
 
