@@ -1,10 +1,11 @@
 import math
+import requests
 import pandas as pd
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from streamlit_geolocation import streamlit_geolocation
 
-# Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="FestiNesia", layout="wide")
 
 # 1. Load Dataset
@@ -12,7 +13,6 @@ st.set_page_config(page_title="FestiNesia", layout="wide")
 def load_data():
     df = pd.read_csv('KEN_2026_Event_Kemenpar.csv')
     
-    # Mock Coordinates Mapping
     KOTA_COORDS = {
         "Kota Banda Aceh": (5.5483, 95.3238),
         "Kota Medan": (3.5952, 98.6722),
@@ -28,8 +28,8 @@ def load_data():
 
 df = load_data()
 
-# 2. Fungsi Perhitungan Jarak (Haversine Formula) & Waktu
-def calculate_distance_and_time(lat1, lon1, lat2, lon2, avg_speed_kmh=50):
+# 2. Perhitungan Jarak Haversine (Fallback jika OSRM gagal/offline)
+def calculate_haversine(lat1, lon1, lat2, lon2, avg_speed_kmh=50):
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -40,13 +40,32 @@ def calculate_distance_and_time(lat1, lon1, lat2, lon2, avg_speed_kmh=50):
     travel_time_hours = distance_km / avg_speed_kmh
     hours = int(travel_time_hours)
     minutes = int((travel_time_hours - hours) * 60)
-    if hours > 0:
-        time_str = f"{hours} jam {minutes} menit"
-    else:
-        time_str = f"{minutes} menit"
+    time_str = f"{hours} jam {minutes} menit" if hours > 0 else f"{minutes} menit"
     return round(distance_km, 1), time_str
 
-# 3. Fungsi Rekomendasi Festival
+# 3. Perhitungan Jarak Rute Jalan Raya Real-Time via OSRM API
+def get_realtime_route(lat1, lon1, lat2, lon2):
+    # Format OSRM: /driving/{longitude1},{latitude1};{longitude2},{latitude2}
+    url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
+    try:
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("routes"):
+                distance_km = round(data["routes"][0]["distance"] / 1000, 1)
+                duration_min = round(data["routes"][0]["duration"] / 60)
+                
+                hours = duration_min // 60
+                minutes = duration_min % 60
+                time_str = f"{hours} jam {minutes} menit" if hours > 0 else f"{minutes} menit"
+                return distance_km, time_str
+    except Exception:
+        pass
+    
+    # Jika API OSRM error/timeout, gunakan rumus Haversine sebagai cadangan
+    return calculate_haversine(lat1, lon1, lat2, lon2)
+
+# 4. Fungsi Rekomendasi Festival
 def recommend_festivals(user_lat=None, user_lng=None, provinsi=None, bulan=None, keyword="", top_n=5):
     filtered_df = df.copy()
     if provinsi:
@@ -61,7 +80,7 @@ def recommend_festivals(user_lat=None, user_lng=None, provinsi=None, bulan=None,
         distances = []
         times = []
         for _, row in filtered_df.iterrows():
-            dist, time_est = calculate_distance_and_time(user_lat, user_lng, row['latitude'], row['longitude'])
+            dist, time_est = get_realtime_route(user_lat, user_lng, row['latitude'], row['longitude'])
             distances.append(dist)
             times.append(time_est)
         filtered_df['jarak_km'] = distances
@@ -87,7 +106,7 @@ def recommend_festivals(user_lat=None, user_lng=None, provinsi=None, bulan=None,
 
     return results.head(top_n)
 
-# --- TAMPILAN FRONT-END STREAMLIT ---
+# --- FRONT-END STREAMLIT ---
 col_logo, col_nav = st.columns([2, 6])
 with col_logo:
     st.markdown("### 🌟 FestiNesia")
@@ -100,6 +119,18 @@ if page == "Beranda":
     st.title("Temukan Festival, Jelajahi Indonesia.")
     st.caption("Platform wisata budaya berbasis AI untuk membantu kamu menemukan festival dan destinasi terbaik.")
     
+    # Widget Geolocation Browser Real-Time
+    st.subheader("📍 Dapatkan Lokasi Real-Time Kamu")
+    location = streamlit_geolocation()
+    
+    user_lat, user_lng = None, None
+    if location and location.get('latitude') and location.get('longitude'):
+        user_lat = location['latitude']
+        user_lng = location['longitude']
+        st.success(f"Lokasi terdeteksi: {user_lat:.4f}, {user_lng:.4f}")
+    else:
+        st.info("Klik tombol di atas untuk membagikan lokasi GPS kamu.")
+
     # Input Pencarian Cepat
     with st.container():
         c1, c2, c3 = st.columns([3, 2, 1])
@@ -113,8 +144,12 @@ if page == "Beranda":
             
     if search_btn or keyword_input:
         prov_filter = None if provinsi_input == "Semua" else provinsi_input
-        # Simulasi titik awal user dari Medan (bisa diganti sesuai kebutuhan)
-        results = recommend_festivals(user_lat=3.5952, user_lng=98.6722, provinsi=prov_filter, keyword=keyword_input, top_n=6)
+        
+        # Fallback jika user belum klik tombol lokasi: Gunakan koordinat default Medan
+        active_lat = user_lat if user_lat else 3.5952
+        active_lng = user_lng if user_lng else 98.6722
+        
+        results = recommend_festivals(user_lat=active_lat, user_lng=active_lng, provinsi=prov_filter, keyword=keyword_input, top_n=6)
         
         st.subheader("Hasil Pencarian Festival")
         if results.empty:
@@ -126,31 +161,5 @@ if page == "Beranda":
                     st.info(f"**{row['nama_event']}**")
                     st.write(f"📍 {row['kabupaten_kota']}, {row['provinsi']}")
                     if 'jarak_km' in row:
-                        st.caption(f"🚗 Jarak: {row['jarak_km']} km ({row['estimasi_waktu']})")
+                        st.caption(f"🚗 Rute Jalan: **{row['jarak_km']} km** ({row['estimasi_waktu']})")
                     st.markdown("---")
-
-elif page == "Jelajah":
-    st.title("Jelajahi Festival & Destinasi Budaya")
-    selected_prov = st.selectbox("Filter Berdasarkan Provinsi", df['provinsi'].dropna().unique())
-    
-    filtered_res = df[df['provinsi'] == selected_prov]
-    st.write(f"Menampilkan {len(filtered_res)} event tersedia di {selected_prov}:")
-    
-    for _, row in filtered_res.iterrows():
-        with st.expander(f"{row['nama_event']} ({row.get('bulan_mulai', 'Jadwal fleksibel')})"):
-            st.write(f"**Lokasi:** {row['kabupaten_kota']}, {row['provinsi']}")
-            st.write(f"**Status Top 10 KEN:** {row.get('top_10_ken', '-')}")
-
-elif page == "AI Planner":
-    st.title("AI Trip Planner")
-    st.write("Dapatkan rekomendasi perjalanan wisata budaya sesuai minat dan lokasimu.")
-    
-    with st.form("ai_form"):
-        minat = st.text_input("Apa minat/tema festival yang kamu cari?", value="Art Culture")
-        submitted = st.form_submit_button("Dapatkan Rekomendasi AI")
-        
-        if submitted:
-            res = recommend_festivals(user_lat=3.5952, user_lng=98.6722, keyword=minat, top_n=3)
-            st.success("Rekomendasi Berhasil Dibuat!")
-            for _, row in res.iterrows():
-                st.markdown(f"- **{row['nama_event']}** di *{row['kabupaten_kota']}, {row['provinsi']}* (Estimasi jarak dari titikmu: {row.get('jarak_km', 0)} km)")
