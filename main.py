@@ -206,7 +206,7 @@ if page == "Beranda":
             st.session_state.active_tab = "Trip Planner"
             st.rerun()
 
-# --- 2. HALAMAN JELAJAH EVENT (LENGKAP) ---
+# --- 2. HALAMAN JELAJAH EVENT ---
 elif page == "Jelajah Event":
     if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
@@ -216,7 +216,7 @@ elif page == "Jelajah Event":
     st.caption("Temukan seluruh daftar pergelaran seni dan festival di Indonesia.")
     st.markdown("---")
     
-    # Filter dan Pencarian Event
+    # Filter dan Pencarian Event (Dropdown Wilayah disamakan dengan Trip Planner)
     col_search, col_wilayah = st.columns([2, 1])
     with col_search:
         keyword = st.text_input("🔍 Cari Event / Jenis Seni:", placeholder="Contoh: Tari, Musik, Karnaval...")
@@ -224,7 +224,7 @@ elif page == "Jelajah Event":
         daftar_wilayah = ["Semua"]
         if not df.empty and 'wilayah' in df.columns:
             daftar_wilayah += sorted(df['wilayah'].dropna().unique().tolist())
-        wilayah_pilihan = st.selectbox("📍 Pilih Wilayah:", daftar_wilayah)
+        wilayah_pilihan = st.selectbox("📍 Pilih Wilayah:", daftar_wilayah, key="jelajah_wilayah_select")
         
     results = recommend_events(
         wilayah=None if wilayah_pilihan == "Semua" else wilayah_pilihan,
@@ -275,7 +275,7 @@ elif page == "Jelajah Event":
     else:
         st.info("Tidak ditemukan event yang sesuai dengan pencarianmu.")
 
-# --- 3. HALAMAN TRIP PLANNER (LENGKAP) ---
+# --- 3. HALAMAN TRIP PLANNER ---
 elif page == "Trip Planner":
     if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
@@ -292,7 +292,7 @@ elif page == "Trip Planner":
         daftar_wilayah = ["Semua"]
         if not df.empty and 'wilayah' in df.columns:
             daftar_wilayah += sorted(df['wilayah'].dropna().unique().tolist())
-        wilayah_pilihan = st.selectbox("Wilayah / Kota:", daftar_wilayah)
+        wilayah_pilihan = st.selectbox("Wilayah / Kota:", daftar_wilayah, key="trip_wilayah_select")
         
     if st.button("Buat Rencana Kunjungan", use_container_width=True):
         st.success("Rencana perjalanan berhasil dibuat!")
