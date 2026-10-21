@@ -126,12 +126,6 @@ if 'active_tab' not in st.session_state:
 if 'jelajah_page' not in st.session_state:
     st.session_state.jelajah_page = 1
 
-def set_tab(tab_name):
-    st.session_state.active_tab = tab_name
-
-def reset_jelajah_page():
-    st.session_state.jelajah_page = 1
-
 def prev_page():
     if st.session_state.jelajah_page > 1:
         st.session_state.jelajah_page -= 1
@@ -155,18 +149,28 @@ def load_data():
 
 df = load_data()
 
+# Helper untuk mencari kolom wilayah & jenis kesenian
+def get_column_by_keyword(dataframe, keywords):
+    for col in dataframe.columns:
+        if any(key in col for key in keywords):
+            return col
+    return None
+
+wilayah_col = get_column_by_keyword(df, ['wilayah', 'kota', 'kabupaten', 'provinsi', 'lokasi'])
+jenis_col = get_column_by_keyword(df, ['jenis_kesenian', 'jenis', 'kategori', 'seni'])
+
 # 3. Fungsi Rekomendasi / Pencarian
 def recommend_events(wilayah=None, keyword=""):
     filtered_df = df.copy()
-    if wilayah and wilayah != "Semua":
-        filtered_df = filtered_df[filtered_df['wilayah'].astype(str).str.lower() == wilayah.lower()]
+    if wilayah and wilayah != "Semua" and wilayah_col:
+        filtered_df = filtered_df[filtered_df[wilayah_col].astype(str).str.lower() == wilayah.lower()]
     if filtered_df.empty:
         return filtered_df
     
-    if keyword:
+    if keyword and keyword != "Semua":
         nama_col = 'nama_kegiatan' if 'nama_kegiatan' in filtered_df.columns else filtered_df.columns[0]
-        jenis_col = 'jenis_kesenian' if 'jenis_kesenian' in filtered_df.columns else nama_col
-        search_corpus = filtered_df[nama_col].fillna('') + " " + filtered_df[jenis_col].fillna('')
+        search_target = jenis_col if jenis_col else nama_col
+        search_corpus = filtered_df[nama_col].fillna('') + " " + filtered_df[search_target].fillna('')
         
         vectorizer = TfidfVectorizer()
         tfidf_matrix = vectorizer.fit_transform(search_corpus)
@@ -216,28 +220,33 @@ elif page == "Jelajah Event":
     st.caption("Temukan seluruh daftar pergelaran seni dan festival di Indonesia.")
     st.markdown("---")
     
-    # Filter dan Pencarian Event (Dropdown Wilayah disamakan dengan Trip Planner)
-    col_search, col_wilayah = st.columns([2, 1])
-    with col_search:
-        keyword = st.text_input("🔍 Cari Event / Jenis Seni:", placeholder="Contoh: Tari, Musik, Karnaval...")
+    # Filter dan Pencarian Event (Keduanya berbentuk Dropdown)
+    col_kategori, col_wilayah = st.columns(2)
+    
+    with col_kategori:
+        daftar_kategori = ["Semua"]
+        if not df.empty and jenis_col:
+            daftar_kategori += sorted(df[jenis_col].dropna().astype(str).unique().tolist())
+        else:
+            daftar_kategori += ["Seni Tari", "Seni Musik", "Seni Teater/Pertunjukan", "Seni Rupa", "Karnaval / Budaya"]
+        kategori_pilihan = st.selectbox("🎭 Pilih Jenis Seni / Event:", daftar_kategori, key="jelajah_kategori_select")
+        
     with col_wilayah:
         daftar_wilayah = ["Semua"]
-        if not df.empty and 'wilayah' in df.columns:
-            daftar_wilayah += sorted(df['wilayah'].dropna().unique().tolist())
+        if not df.empty and wilayah_col:
+            daftar_wilayah += sorted(df[wilayah_col].dropna().astype(str).unique().tolist())
         wilayah_pilihan = st.selectbox("📍 Pilih Wilayah:", daftar_wilayah, key="jelajah_wilayah_select")
         
     results = recommend_events(
         wilayah=None if wilayah_pilihan == "Semua" else wilayah_pilihan,
-        keyword=keyword
+        keyword="" if kategori_pilihan == "Semua" else kategori_pilihan
     )
     
     if not results.empty:
-        # Pagination Setup (10 Event per Halaman)
         items_per_page = 10
         total_items = len(results)
         total_pages = math.ceil(total_items / items_per_page)
         
-        # Validasi batas halaman
         if st.session_state.jelajah_page > total_pages:
             st.session_state.jelajah_page = 1
             
@@ -247,21 +256,19 @@ elif page == "Jelajah Event":
         
         st.write(f"Menampilkan **{start_idx + 1} - {min(end_idx, total_items)}** dari **{total_items}** event:")
         
-        # Tampilkan List Card Event
         for idx, row in page_results.iterrows():
             nama = row.get('nama_kegiatan', row.iloc[0])
-            wilayah = row.get('wilayah', 'Indonesia')
-            jenis = row.get('jenis_kesenian', '-')
+            wilayah_val = row.get(wilayah_col, 'Indonesia') if wilayah_col else 'Indonesia'
+            jenis_val = row.get(jenis_col, '-') if jenis_col else '-'
             penyelenggara = row.get('penyelenggara', '-')
             
-            with st.expander(f"🎭 {nama} ({wilayah})"):
-                st.write(f"**Jenis Kesenian:** {jenis}")
-                st.write(f"**Wilayah:** {wilayah}")
+            with st.expander(f"🎭 {nama} ({wilayah_val})"):
+                st.write(f"**Jenis Kesenian:** {jenis_val}")
+                st.write(f"**Wilayah:** {wilayah_val}")
                 st.write(f"**Penyelenggara:** {penyelenggara}")
-                query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah))}"
+                query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah_val))}"
                 st.markdown(f"[🗺️ Buka Rute di Google Maps]({query_maps})")
                 
-        # Kontrol Pagination
         st.markdown("---")
         col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
         with col_p1:
@@ -287,11 +294,16 @@ elif page == "Trip Planner":
     
     col1, col2 = st.columns(2)
     with col1:
-        kategori_minat = st.selectbox("Pilih Jenis Kesenian / Minat:", ["Semua", "Seni Tari", "Seni Musik", "Seni Teater", "Seni Rupa", "Karnaval / Budaya"])
+        daftar_kategori = ["Semua"]
+        if not df.empty and jenis_col:
+            daftar_kategori += sorted(df[jenis_col].dropna().astype(str).unique().tolist())
+        else:
+            daftar_kategori += ["Seni Tari", "Seni Musik", "Seni Teater/Pertunjukan", "Seni Rupa", "Karnaval / Budaya"]
+        kategori_minat = st.selectbox("Pilih Jenis Kesenian / Minat:", daftar_kategori, key="trip_kategori_select")
     with col2:
         daftar_wilayah = ["Semua"]
-        if not df.empty and 'wilayah' in df.columns:
-            daftar_wilayah += sorted(df['wilayah'].dropna().unique().tolist())
+        if not df.empty and wilayah_col:
+            daftar_wilayah += sorted(df[wilayah_col].dropna().astype(str).unique().tolist())
         wilayah_pilihan = st.selectbox("Wilayah / Kota:", daftar_wilayah, key="trip_wilayah_select")
         
     if st.button("Buat Rencana Kunjungan", use_container_width=True):
@@ -303,10 +315,10 @@ elif page == "Trip Planner":
         if not results.empty:
             for idx, row in results.head(5).iterrows():
                 nama = row.get('nama_kegiatan', row.iloc[0])
-                wilayah = row.get('wilayah', 'Indonesia')
-                with st.expander(f"📍 {nama} ({wilayah})"):
-                    st.write(f"**Wilayah:** {wilayah}")
-                    query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah))}"
+                wilayah_val = row.get(wilayah_col, 'Indonesia') if wilayah_col else 'Indonesia'
+                with st.expander(f"📍 {nama} ({wilayah_val})"):
+                    st.write(f"**Wilayah:** {wilayah_val}")
+                    query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah_val))}"
                     st.markdown(f"[🗺️ Buka Rute di Google Maps]({query_maps})")
         else:
             st.info("Tidak ditemukan event yang sesuai dengan kriteria filter.")
