@@ -4,9 +4,8 @@ import pandas as pd
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from streamlit_geolocation import streamlit_geolocation
 
-# Konfigurasi Halaman Streamlit
+# 1. Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="FestiNesia - Cultural & Art Events", layout="wide")
 
 # --- KUSTOMISASI TAMPILAN / THEME (CSS) ---
@@ -61,7 +60,7 @@ st.markdown("""
         background-color: #FAFAFA !important;
         color: #333333 !important;
         border: 1px solid #E0E0E0 !important; /* Outline samar tipis */
-        border-left: 4px solid #FF6600 !important; /* Akses Oranye di Kiri */
+        border-left: 4px solid #FF6600 !important; /* Aksen Oranye di Kiri */
         border-radius: 6px !important;
         padding: 10px 14px !important;
     }
@@ -102,7 +101,7 @@ def prev_page():
 def next_page():
     st.session_state.jelajah_page += 1
 
-# 1. Load Dataset Pergelaran Seni & Budaya
+# 2. Load Dataset Pergelaran Seni & Budaya
 @st.cache_data
 def load_data():
     file_path = 'data_penyelenggaraan_seni_budaya_5_kategori.xlsx'
@@ -118,7 +117,7 @@ def load_data():
 
 df = load_data()
 
-# 2. Fungsi Rekomendasi
+# 3. Fungsi Rekomendasi
 def recommend_events(wilayah=None, keyword=""):
     filtered_df = df.copy()
     if wilayah and wilayah != "Semua":
@@ -144,6 +143,7 @@ def recommend_events(wilayah=None, keyword=""):
 # --- TAMPILAN FRONT-END STREAMLIT ---
 page = st.session_state.active_tab
 
+# --- 1. HALAMAN BERANDA ---
 if page == "Beranda":
     st.title("FestiNesia")
     st.caption("Platform informasi pergelaran seni, budaya, dan festival lokal.")
@@ -168,4 +168,28 @@ if page == "Beranda":
             st.session_state.active_tab = "Trip Planner"
             st.rerun()
 
-# (Sisa logika halaman Jelajah Event dan Trip Planner tetap sama)
+# --- 2. HALAMAN JELAJAH EVENT (BERSIH / PUTIH) ---
+elif page == "Jelajah Event":
+    if st.button("← Kembali ke Beranda"):
+        st.session_state.active_tab = "Beranda"
+        st.rerun()
+        
+    st.title("Jelajah Semua Event")
+    st.caption("Temukan seluruh daftar pergelaran seni dan festival di Indonesia.")
+    st.markdown("---")
+    
+    # Area Konten Putih Bersih
+    st.write("")
+
+# --- 3. HALAMAN TRIP PLANNER (BERSIH / PUTIH) ---
+elif page == "Trip Planner":
+    if st.button("← Kembali ke Beranda"):
+        st.session_state.active_tab = "Beranda"
+        st.rerun()
+        
+    st.title("Trip Planner")
+    st.caption("Rencanakan perjalanan dan jadwal kunjungan festivalmu di sini.")
+    st.markdown("---")
+    
+    # Area Konten Putih Bersih
+    st.write("")
