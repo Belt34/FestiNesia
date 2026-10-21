@@ -11,13 +11,13 @@ st.set_page_config(page_title="FestiNesia - Cultural & Art Events", layout="wide
 # --- KUSTOMISASI TAMPILAN / THEME (CSS) ---
 st.markdown("""
     <style>
-    /* 1. Latar Belakang Aplikasi & Warna Teks Utama */
+    /* 1. Latar Belakang Aplikasi (Oranye Krem Lembut dari Header) */
     .stApp {
-        background-color: #FFFFFF !important;
+        background-color: #FFF3E0 !important;
         color: #333333 !important;
     }
 
-    /* 2. Warna Teks Paragraf & Label */
+    /* 2. Warna Teks Paragraf, Label & Title */
     p, span, label, div {
         color: #333333 !important;
     }
@@ -33,52 +33,91 @@ st.markdown("""
         color: #E65100 !important;
     }
 
-    /* 4. Top Bar Streamlit */
+    /* 4. Top Bar Streamlit (Senada dengan Background Utama) */
     header[data-testid="stHeader"] {
         background-color: #FFF3E0 !important;
         border-bottom: 2px solid #FF6600;
     }
 
-    /* 5. Tombol / Button (Latar Putih, Border & Teks Oranye) */
-    div.stButton > button {
-        background-color: #FFFFFF !important; /* Isi Putih */
-        color: #FF6600 !important;            /* Teks Oranye */
-        border: 1.5px solid #FF6600 !important;/* Border Oranye Samar */
+    /* 5. Custom Dropdown & Input Box (Latar Putih Kontras) */
+    div[data-baseweb="select"] > div, 
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="base-input"],
+    .stSelectbox div[role="combobox"] {
+        background-color: #FFFFFF !important;
+        color: #333333 !important;
+        border: 1.5px solid #FF6600 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Warna Teks di dalam Input / Dropdown */
+    div[data-baseweb="select"] *, 
+    div[data-baseweb="input"] *,
+    input {
+        color: #333333 !important;
+        background-color: transparent !important;
+    }
+
+    /* Menu Popover Pilihan Dropdown */
+    div[data-baseweb="popover"], 
+    ul[data-baseweb="menu"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #FF6600 !important;
+        border-radius: 8px !important;
+    }
+
+    ul[data-baseweb="menu"] li {
+        background-color: #FFFFFF !important;
+        color: #333333 !important;
+    }
+
+    ul[data-baseweb="menu"] li:hover {
+        background-color: #FFF3E0 !important;
+        color: #FF6600 !important;
+    }
+
+    /* 6. Custom Tombol Utama & Widget Lokasi (Latar Putih dengan Border Oranye) */
+    div.stButton > button, 
+    button[title="Get Location"],
+    .stButton button {
+        background-color: #FFFFFF !important;
+        color: #FF6600 !important;
+        border: 1.5px solid #FF6600 !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
         transition: all 0.2s ease-in-out;
     }
 
-    div.stButton > button:hover {
-        background-color: #FFF3E0 !important; /* Soft Cream/Oranye Muda saat Hover */
+    div.stButton > button:hover,
+    button[title="Get Location"]:hover {
+        background-color: #FFE0B2 !important; /* Sedikit lebih gelap saat di-hover */
         color: #E65100 !important;
         border-color: #E65100 !important;
     }
 
-    /* 6. Expander / Card Event dengan Outline Samar (Box Outline) */
+    /* 7. Info Box & Alert Container */
+    div[data-testid="stAlert"],
+    div[data-baseweb="notification"] {
+        background-color: #FFE0B2 !important;
+        color: #D84315 !important;
+        border: 1px solid #FFB74D !important;
+        border-radius: 8px !important;
+    }
+
+    /* 8. Expander / Card Container (Latar Putih di atas Background Krem) */
     .streamlit-expanderHeader {
-        background-color: #FAFAFA !important;
+        background-color: #FFFFFF !important;
         color: #333333 !important;
-        border: 1px solid #E0E0E0 !important; /* Outline samar tipis */
-        border-left: 4px solid #FF6600 !important; /* Aksen Oranye di Kiri */
+        border: 1px solid #FFE0B2 !important;
+        border-left: 4px solid #FF6600 !important;
         border-radius: 6px !important;
-        padding: 10px 14px !important;
     }
     
-    /* Container/Content di dalam Expander */
     div[data-testid="stExpanderDetails"] {
-        border: 1px solid #E0E0E0 !important;
+        background-color: #FFFFFF !important;
+        border: 1px solid #FFE0B2 !important;
         border-top: none !important;
         border-radius: 0 0 6px 6px !important;
-        background-color: #FFFFFF !important;
-        padding: 14px !important;
-    }
-    
-    /* Box Outline Samar untuk Container Umum / Form */
-    div[data-testid="stForm"], div[data-testid="stVerticalBlock"] > div[style*="border"] {
-        border: 1px solid #E5E7EB !important;
-        border-radius: 8px !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important; /* Bayangan sangat samar */
     }
     </style>
 """, unsafe_allow_html=True)
@@ -168,7 +207,7 @@ if page == "Beranda":
             st.session_state.active_tab = "Trip Planner"
             st.rerun()
 
-# --- 2. HALAMAN JELAJAH EVENT (BERSIH / PUTIH) ---
+# --- 2. HALAMAN JELAJAH EVENT ---
 elif page == "Jelajah Event":
     if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
@@ -178,18 +217,37 @@ elif page == "Jelajah Event":
     st.caption("Temukan seluruh daftar pergelaran seni dan festival di Indonesia.")
     st.markdown("---")
     
-    # Area Konten Putih Bersih
     st.write("")
 
-# --- 3. HALAMAN TRIP PLANNER (BERSIH / PUTIH) ---
+# --- 3. HALAMAN TRIP PLANNER ---
 elif page == "Trip Planner":
     if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
         st.rerun()
         
-    st.title("Trip Planner")
-    st.caption("Rencanakan perjalanan dan jadwal kunjungan festivalmu di sini.")
+    st.title("Trip Planner - Cultural Route")
+    st.caption("Rencanakan kunjungan ke tempat acara seni budaya berdasarkan minat dan lokasimu.")
     st.markdown("---")
     
-    # Area Konten Putih Bersih
-    st.write("")
+    col1, col2 = st.columns(2)
+    with col1:
+        kategori_minat = st.selectbox("Pilih Jenis Kesenian / Minat:", ["Semua", "Seni Tari", "Seni Musik", "Seni Teater", "Seni Rupa", "Karnaval / Budaya"])
+    with col2:
+        wilayah_pilihan = st.selectbox("Wilayah / Kota:", ["Semua", "Jakarta", "Bandung", "Yogyakarta", "Bali", "Surabaya"])
+        
+    if st.button("Buat Rencana Kunjungan", use_container_width=True):
+        st.success("Rencana perjalanan berhasil dibuat!")
+        results = recommend_events(
+            wilayah=None if wilayah_pilihan == "Semua" else wilayah_pilihan,
+            keyword="" if kategori_minat == "Semua" else kategori_minat
+        )
+        if not results.empty:
+            for idx, row in results.head(5).iterrows():
+                nama = row.get('nama_kegiatan', row.iloc[0])
+                wilayah = row.get('wilayah', 'Indonesia')
+                with st.expander(f"📍 {nama} ({wilayah})"):
+                    st.write(f"**Wilayah:** {wilayah}")
+                    query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah))}"
+                    st.markdown(f"[🗺️ Buka Rute di Google Maps]({query_maps})")
+        else:
+            st.info("Tidak ditemukan event yang sesuai dengan kriteria filter.")
