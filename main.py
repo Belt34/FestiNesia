@@ -12,18 +12,18 @@ st.set_page_config(page_title="FestiNesia - Cultural & Art Events", layout="wide
 # --- KUSTOMISASI TAMPILAN / THEME (CSS) ---
 st.markdown("""
     <style>
-    /* Latar Belakang Aplikasi & Warna Teks Utama */
+    /* 1. Latar Belakang Aplikasi & Warna Teks Utama */
     .stApp {
         background-color: #FFFFFF !important;
         color: #333333 !important;
     }
 
-    /* Warna Teks Paragraf & Label */
+    /* 2. Warna Teks Paragraf & Label */
     p, span, label, div {
         color: #333333 !important;
     }
 
-    /* Header Utama & Sub-header dengan Warna Oranye */
+    /* 3. Header Utama & Sub-header */
     h1 {
         color: #FF6600 !important;
         border-bottom: 3px solid #FF6600;
@@ -34,31 +34,52 @@ st.markdown("""
         color: #E65100 !important;
     }
 
-    /* Top Bar Streamlit */
+    /* 4. Top Bar Streamlit */
     header[data-testid="stHeader"] {
         background-color: #FFF3E0 !important;
         border-bottom: 2px solid #FF6600;
     }
 
-    /* Tombol / Button */
+    /* 5. Tombol / Button (Latar Putih, Border & Teks Oranye) */
     div.stButton > button {
-        background-color: #FF6600 !important;
-        color: #FFFFFF !important;
+        background-color: #FFFFFF !important; /* Isi Putih */
+        color: #FF6600 !important;            /* Teks Oranye */
+        border: 1.5px solid #FF6600 !important;/* Border Oranye Samar */
         border-radius: 8px !important;
-        border: none !important;
-        font-weight: bold !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease-in-out;
     }
 
     div.stButton > button:hover {
-        background-color: #E65100 !important;
-        color: #FFFFFF !important;
+        background-color: #FFF3E0 !important; /* Soft Cream/Oranye Muda saat Hover */
+        color: #E65100 !important;
+        border-color: #E65100 !important;
     }
 
-    /* Expander / Card Event */
+    /* 6. Expander / Card Event dengan Outline Samar (Box Outline) */
     .streamlit-expanderHeader {
-        background-color: #F8F9FA !important;
+        background-color: #FAFAFA !important;
         color: #333333 !important;
-        border-left: 4px solid #FF6600 !important;
+        border: 1px solid #E0E0E0 !important; /* Outline samar tipis */
+        border-left: 4px solid #FF6600 !important; /* Akses Oranye di Kiri */
+        border-radius: 6px !important;
+        padding: 10px 14px !important;
+    }
+    
+    /* Container/Content di dalam Expander */
+    div[data-testid="stExpanderDetails"] {
+        border: 1px solid #E0E0E0 !important;
+        border-top: none !important;
+        border-radius: 0 0 6px 6px !important;
+        background-color: #FFFFFF !important;
+        padding: 14px !important;
+    }
+    
+    /* Box Outline Samar untuk Container Umum / Form */
+    div[data-testid="stForm"], div[data-testid="stVerticalBlock"] > div[style*="border"] {
+        border: 1px solid #E5E7EB !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important; /* Bayangan sangat samar */
     }
     </style>
 """, unsafe_allow_html=True)
