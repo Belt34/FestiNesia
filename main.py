@@ -115,4 +115,35 @@ elif page == "Trip Planner":
     st.caption("Rencanakan perjalanan dan jadwal kunjungan festivalmu di sini.")
     st.markdown("---")
     
-    st.write("")
+    # --- FORM INPUT PERENCANAAN ---
+    col1, col2 = st.columns(2)
+    with col1:
+        lokasi_asal = st.text_input("Lokasi / Kota Asal Kamu", placeholder="Contoh: Jakarta")
+        kategori_minat = st.selectbox("Minat Pergelaran", ["Semua", "Seni Tari", "Seni Musik", "Seni Tather / Pertunjukan", "Seni Rupa / Pameran", "Karnaval / Budaya"])
+    
+    with col2:
+        tgl_kunjungan = st.date_input("Rencana Tanggal Perjalanan")
+        budget_range = st.select_slider("Budget Perjalanan (Estimasi)", options=["Ekonomis", "Standard", "Nyaman"])
+
+    if st.button("Buat Rencana Perjalanan", use_container_width=True):
+        st.success(f"Rencana perjalanan dari **{lokasi_asal if lokasi_asal else 'Lokasi Kamu'}** berhasil dibuat!")
+        st.markdown("### 📌 Rekomendasi Agenda Festival")
+        
+        # Contoh filter sederhana berdasarkan dataset yang ada
+        results = recommend_events(keyword="" if kategori_minat == "Semua" else kategori_minat)
+        
+        if not results.empty:
+            for idx, row in results.head(3).iterrows():
+                nama = row.get('nama_kegiatan', row.iloc[0])
+                wilayah = row.get('wilayah', 'Indonesia')
+                jenis = row.get('jenis_kesenian', '-')
+                
+                with st.expander(f"📍 {nama} ({wilayah})"):
+                    st.write(f"**Jenis Kesenian:** {jenis}")
+                    st.write(f"**Wilayah:** {wilayah}")
+                    st.write("---")
+                    # Tombol Google Maps Rute
+                    query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah))}"
+                    st.markdown(f"[🗺️ Buka Rute di Google Maps]({query_maps})")
+        else:
+            st.info("Belum ada event yang cocok dengan kriteria perencanaanmu.")
