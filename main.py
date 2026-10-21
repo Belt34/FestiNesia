@@ -4,7 +4,123 @@ import pandas as pd
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from streamlit_geolocation import streamlit_geolocation
+
+# 1. Konfigurasi Halaman Streamlit
+st.set_page_config(page_title="FestiNesia - Cultural & Art Events", layout="wide")
+
+# --- KUSTOMISASI TAMPILAN / THEME (CSS) ---
+st.markdown("""
+    <style>
+    /* 1. Latar Belakang Aplikasi & Warna Teks Utama */
+    .stApp {
+        background-color: #FFFFFF !important;
+        color: #333333 !important;
+    }
+
+    /* 2. Warna Teks Paragraf, Label & Title */
+    p, span, label, div {
+        color: #333333 !important;
+    }
+
+    /* 3. Header Utama & Sub-header */
+    h1 {
+        color: #FF6600 !important;
+        border-bottom: 3px solid #FF6600;
+        padding-bottom: 8px;
+    }
+
+    h2, h3, h4 {
+        color: #E65100 !important;
+    }
+
+    /* 4. Top Bar Streamlit */
+    header[data-testid="stHeader"] {
+        background-color: #FFF3E0 !important;
+        border-bottom: 2px solid #FF6600;
+    }
+
+    /* 5. FIX DROPDOWN & INPUT BOX (Ganti Warna Hitam ke Putih-Oranye) */
+    div[data-baseweb="select"] > div, 
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="base-input"],
+    .stSelectbox div[role="combobox"] {
+        background-color: #FFFFFF !important;
+        color: #333333 !important;
+        border: 1.5px solid #FF6600 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Warna Teks di dalam Input / Dropdown */
+    div[data-baseweb="select"] *, 
+    div[data-baseweb="input"] *,
+    input {
+        color: #333333 !important;
+        background-color: transparent !important;
+    }
+
+    /* Menu Popover Pilihan Dropdown */
+    div[data-baseweb="popover"], 
+    ul[data-baseweb="menu"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #FF6600 !important;
+        border-radius: 8px !important;
+    }
+
+    ul[data-baseweb="menu"] li {
+        background-color: #FFFFFF !important;
+        color: #333333 !important;
+    }
+
+    ul[data-baseweb="menu"] li:hover {
+        background-color: #FFF3E0 !important;
+        color: #FF6600 !important;
+    }
+
+    /* 6. FIX TOMBOL & BUTTON LOKASI GEOLOCATION */
+    div.stButton > button, 
+    button[title="Get Location"],
+    .stButton button {
+        background-color: #FFFFFF !important;
+        color: #FF6600 !important;
+        border: 1.5px solid #FF6600 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease-in-out;
+    }
+
+    div.stButton > button:hover,
+    button[title="Get Location"]:hover {
+        background-color: #FFF3E0 !important;
+        color: #E65100 !important;
+        border-color: #E65100 !important;
+    }
+
+    /* 7. INFO BOX & ALERT CONTAINER */
+    div[data-testid="stAlert"],
+    div[data-baseweb="notification"] {
+        background-color: #FFF3E0 !important;
+        color: #D84315 !important;
+        border: 1px solid #FFB74D !important;
+        border-radius: 8px !important;
+    }
+
+    /* 8. EXPANDER / CARD CONTAINER */
+    .streamlit-expanderHeader {
+        background-color: #FAFAFA !important;
+        color: #333333 !important;
+        border: 1px solid #E0E0E0 !important;
+        border-left: 4px solid #FF6600 !important;
+        border-radius: 6px !important;
+    }
+    
+    div[data-testid="stExpanderDetails"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E0E0E0 !important;
+        border-top: none !important;
+        border-radius: 0 0 6px 6px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- INISIALISASI SESSION STATE UNTUK NAVIGASI & LIMIT ---
 if 'active_tab' not in st.session_state:
@@ -24,58 +140,7 @@ def prev_page():
 def next_page():
     st.session_state.jelajah_page += 1
 
-# Konfigurasi Halaman Streamlit
-st.set_page_config(page_title="FestiNesia - Cultural & Art Events", layout="wide")
-
-# --- STYLING CUSTOM (BACKGROUND PUTIH, TEKS HITAM, BOX ORANGE TEMBUS PANDANG) ---
-st.markdown(
-    """
-    <style>
-    /* Background utama putih & teks hitam */
-    .stApp {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-    }
-    
-    /* Memastikan semua label, paragraf, dan teks berwarna hitam */
-    p, span, label, h1, h2, h3, h4, h5, h6, .stMarkdown {
-        color: #000000 !important;
-    }
-
-    /* Kustomisasi Box Expander, Info/Alert, dan Form Container */
-    div[data-testid="stExpander"], 
-    div[data-testid="stAlert"], 
-    div[data-testid="stForm"] {
-        background-color: rgba(255, 165, 0, 0.2) !important; /* Oranye terang tembus pandang */
-        border: 1px solid rgba(255, 140, 0, 0.6) !important;
-        border-radius: 8px !important;
-        color: #000000 !important;
-    }
-
-    /* Penyesuaian warna header pada Expander */
-    div[data-testid="stExpander"] details summary span {
-        color: #000000 !important;
-    }
-
-    /* Kustomisasi tombol */
-    .stButton > button {
-        border-radius: 6px;
-        border: 1px solid rgba(255, 140, 0, 0.8);
-        background-color: rgba(255, 165, 0, 0.15);
-        color: #000000 !important;
-    }
-    
-    .stButton > button:hover {
-        background-color: rgba(255, 165, 0, 0.4);
-        border-color: rgba(255, 140, 0, 1);
-        color: #000000 !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# 1. Load Dataset Pergelaran Seni & Budaya
+# 2. Load Dataset Pergelaran Seni & Budaya
 @st.cache_data
 def load_data():
     file_path = 'data_penyelenggaraan_seni_budaya_5_kategori.xlsx'
@@ -86,204 +151,104 @@ def load_data():
     except Exception as e:
         st.error(f"Gagal membaca file dataset Excel: {e}")
         return pd.DataFrame()
-    
     df.columns = [str(col).strip().lower() for col in df.columns]
     return df
 
 df = load_data()
 
-# 2. Fungsi Rekomendasi
+# 3. Fungsi Rekomendasi
 def recommend_events(wilayah=None, keyword=""):
     filtered_df = df.copy()
-    
     if wilayah and wilayah != "Semua":
         filtered_df = filtered_df[filtered_df['wilayah'].astype(str).str.lower() == wilayah.lower()]
-        
     if filtered_df.empty:
         return filtered_df
-        
+    
     if keyword:
         nama_col = 'nama_kegiatan' if 'nama_kegiatan' in filtered_df.columns else filtered_df.columns[0]
         jenis_col = 'jenis_kesenian' if 'jenis_kesenian' in filtered_df.columns else nama_col
-        
         search_corpus = filtered_df[nama_col].fillna('') + " " + filtered_df[jenis_col].fillna('')
         
         vectorizer = TfidfVectorizer()
         tfidf_matrix = vectorizer.fit_transform(search_corpus)
-        
         query_vec = vectorizer.transform([keyword])
-        filtered_df['score'] = cosine_similarity(query_vec, tfidf_matrix).flatten()
         
+        filtered_df['score'] = cosine_similarity(query_vec, tfidf_matrix).flatten()
         results = filtered_df.sort_values(by='score', ascending=False)
     else:
         results = filtered_df
-        
     return results
 
 # --- TAMPILAN FRONT-END STREAMLIT ---
 page = st.session_state.active_tab
 
+# --- 1. HALAMAN BERANDA ---
 if page == "Beranda":
-    st.title("Selamat Datang di FestiNesia")
+    st.title("FestiNesia")
     st.caption("Platform informasi pergelaran seni, budaya, dan festival lokal.")
     
-    # Deskripsi Nilai Tambah Aplikasi & Konsep 3A Pariwisata
-    st.write(
-        """
-        **FestiNesia** adalah platform digital andalan untuk membantumu menemukan berbagai pertunjukan seni, festival budaya, dan pergelaran lokal secara praktis. Dirancang khusus untuk para pencinta seni dan penjelajah budaya, FestiNesia mengintegrasikan **Konsep 3A** pariwisata ke dalam genggamanmu:
-        
-        - **Atraksi:** Temukan beragam kurasi acara seni dan festival menarik.
-        - **Aksesibilitas:** Dapatkan rekomendasi terdekat dan navigasi rute instan langsung ke lokasi via Google Maps.
-        - **Amenitas:** Nikmati kemudahan eksplorasi fasilitas pendukung dan titik menarik di sekitar tempat acara secara langsung melalui peta.
-        
-        Mulai jelajahi jadwal acara atau susun rencana perjalanan budayamu dengan mudah melalui menu navigasi di bawah ini!
-        """
-    )
+    st.write("""
+    **FestiNesia** adalah platform digital andalan untuk membantumu menemukan berbagai pertunjukan seni, festival budaya, dan pergelaran lokal secara praktis.
     
+    - **Atraksi:** Temukan beragam kurasi acara seni dan festival menarik.
+    - **Aksesibilitas:** Dapatkan rekomendasi terdekat dan navigasi rute instan langsung ke lokasi via Google Maps.
+    - **Amenitas:** Nikmati kemudahan eksplorasi fasilitas pendukung dan titik menarik di sekitar tempat acara.
+    """)
     st.markdown("---")
-    st.subheader("Navigasi Cepat")
-    st.write("Silakan pilih menu di bawah ini untuk mulai menjelajahi acara atau merencanakan perjalanan budayamu:")
     
+    st.subheader("Navigasi Cepat")
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         if st.button("Jelajah Semua Event", use_container_width=True):
             st.session_state.active_tab = "Jelajah Event"
             st.rerun()
-            
     with col_btn2:
         if st.button("Buka Trip Planner", use_container_width=True):
             st.session_state.active_tab = "Trip Planner"
             st.rerun()
-            
-    st.markdown("---")
-    st.info("Tips: Gunakan **Trip Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah lengkap dengan rute Google Maps!")
 
+# --- 2. HALAMAN JELAJAH EVENT ---
 elif page == "Jelajah Event":
-    if st.button("Kembali ke Beranda"):
+    if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
         st.rerun()
         
-    st.title("Daftar Pergelaran Seni & Budaya")
+    st.title("Jelajah Semua Event")
+    st.caption("Temukan seluruh daftar pergelaran seni dan festival di Indonesia.")
+    st.markdown("---")
     
-    if 'jenis_kesenian' in df.columns:
-        kesenian_list = sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
-    else:
-        kesenian_list = []
-        
-    selected_kesenian = st.selectbox("Pilih Jenis Kesenian", kesenian_list, on_change=reset_jelajah_page)
-    
-    if selected_kesenian:
-        filtered_res = df[df['jenis_kesenian'].astype(str).str.strip() == selected_kesenian]
-        total_items = len(filtered_res)
-        
-        st.write(f"Menampilkan total **{total_items}** acara dengan jenis kesenian **{selected_kesenian}**:")
-        
-        items_per_page = 10
-        total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
-        
-        if st.session_state.jelajah_page > total_pages:
-            st.session_state.jelajah_page = total_pages
-        if st.session_state.jelajah_page < 1:
-            st.session_state.jelajah_page = 1
-            
-        start_idx = (st.session_state.jelajah_page - 1) * items_per_page
-        end_idx = start_idx + items_per_page
-        displayed_res = filtered_res.iloc[start_idx:end_idx]
-        
-        for _, row in displayed_res.iterrows():
-            nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
-            tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
-            
-            with st.expander(f"{nama_event} - {row.get('tempat_acara', 'Lokasi Acara')}"):
-                st.write(f"**Tanggal:** {tanggal_val}")
-                st.write(f"**Jenis Kesenian:** {row.get('jenis_kesenian', '-')}")
-                st.write(f"**Wilayah:** {row.get('wilayah', '-')}")
-                
-        if total_pages > 1:
-            st.markdown("---")
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col1:
-                st.button("Sebelumnya", on_click=prev_page, disabled=(st.session_state.jelajah_page == 1), use_container_width=True)
-            with col2:
-                st.markdown(f"<div style='text-align: center; padding-top: 10px;'><b>Halaman {st.session_state.jelajah_page} dari {total_pages}</b></div>", unsafe_allow_html=True)
-            with col3:
-                st.button("Selanjutnya", on_click=next_page, disabled=(st.session_state.jelajah_page == total_pages), use_container_width=True)
+    st.write("")
 
+# --- 3. HALAMAN TRIP PLANNER ---
 elif page == "Trip Planner":
-    if st.button("Kembali ke Beranda"):
+    if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
         st.rerun()
         
     st.title("Trip Planner - Cultural Route")
-    st.write("Rencanakan kunjungan ke tempat acara seni budaya berdasarkan minat dan lokasimu.")
+    st.caption("Rencanakan kunjungan ke tempat acara seni budaya berdasarkan minat dan lokasimu.")
+    st.markdown("---")
     
-    st.subheader("Deteksi Lokasi Real-Time")
-    location = streamlit_geolocation()
-    
-    user_lat, user_lng = None, None
-    if location and location.get('latitude') and location.get('longitude'):
-        user_lat = location['latitude']
-        user_lng = location['longitude']
-        st.success(f"Lokasi kamu terdeteksi: **{user_lat:.4f}, {user_lng:.4f}**")
-    else:
-        st.info("Klik tombol lokasi di atas agar Rute Google Maps mengarah dari posisimu saat ini.")
+    # Form Perencanaan Trip Planner
+    col1, col2 = st.columns(2)
+    with col1:
+        kategori_minat = st.selectbox("Pilih Jenis Kesenian / Minat:", ["Semua", "Seni Tari", "Seni Musik", "Seni Teater", "Seni Rupa", "Karnaval / Budaya"])
+    with col2:
+        wilayah_pilihan = st.selectbox("Wilayah / Kota:", ["Semua", "Jakarta", "Bandung", "Yogyakarta", "Bali", "Surabaya"])
         
-    if 'planner_results' not in st.session_state:
-        st.session_state.planner_results = None
-    if 'planner_lat' not in st.session_state:
-        st.session_state.planner_lat = -6.1754
-    if 'planner_lng' not in st.session_state:
-        st.session_state.planner_lng = 106.8272
-        
-    with st.form("planner_form"):
-        c1, c2 = st.columns(2)
-        with c1:
-            if 'jenis_kesenian' in df.columns:
-                jenis_kesenian_list = ["Semua"] + sorted([str(x).strip() for x in df['jenis_kesenian'].dropna().unique() if str(x).strip() != 'nan'])
-            else:
-                jenis_kesenian_list = ["Semua"]
-            minat_selected = st.selectbox("Pilih Jenis Kesenian / Minat:", jenis_kesenian_list)
-            
-        with c2:
-            wilayah_list = ["Semua"] + list(df['wilayah'].dropna().unique()) if 'wilayah' in df.columns else ["Semua"]
-            wilayah_input = st.selectbox("Wilayah / Kota", wilayah_list)
-            
-        submitted = st.form_submit_button("Buat Rencana Kunjungan", use_container_width=True)
-        
-    if submitted:
-        selected_keyword = "" if minat_selected == "Semua" else minat_selected
-        st.session_state.planner_lat = user_lat if user_lat else -6.1754
-        st.session_state.planner_lng = user_lng if user_lng else 106.8272
-        st.session_state.planner_results = recommend_events(
-            wilayah=wilayah_input,
-            keyword=selected_keyword
+    if st.button("Buat Rencana Kunjungan", use_container_width=True):
+        st.success("Rencana perjalanan berhasil dibuat!")
+        results = recommend_events(
+            wilayah=None if wilayah_pilihan == "Semua" else wilayah_pilihan,
+            keyword="" if kategori_minat == "Semua" else kategori_minat
         )
-        
-    if st.session_state.planner_results is not None:
-        st.success("Rencana Kunjungan Berhasil Dibuat!")
-        if st.session_state.planner_results.empty:
-            st.warning("Tidak ditemukan event seni/budaya yang sesuai dengan filter tersebut.")
+        if not results.empty:
+            for idx, row in results.head(5).iterrows():
+                nama = row.get('nama_kegiatan', row.iloc[0])
+                wilayah = row.get('wilayah', 'Indonesia')
+                with st.expander(f"📍 {nama} ({wilayah})"):
+                    st.write(f"**Wilayah:** {wilayah}")
+                    query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah))}"
+                    st.markdown(f"[🗺️ Buka Rute di Google Maps]({query_maps})")
         else:
-            displayed_results = st.session_state.planner_results.head(3)
-            cols = st.columns(3)
-            for idx, (_, row) in enumerate(displayed_results.iterrows()):
-                with cols[idx % 3]:
-                    nama_event = row.get('nama_kegiatan', row.get('nama_event', 'Event Seni Budaya'))
-                    tempat_acara = str(row.get('tempat_acara', '')).strip()
-                    wilayah_acara = str(row.get('wilayah', 'Indonesia')).strip()
-                    tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
-                    
-                    st.info(f"**{nama_event}**")
-                    st.write(f"Tempat: {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
-                    st.write(f"Wilayah: {wilayah_acara}")
-                    st.write(f"Tanggal: {tanggal_val}")
-                    st.write(f"Kesenian: {row.get('jenis_kesenian', '-')}")
-                    
-                    if tempat_acara and tempat_acara.lower() != 'nan':
-                        tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
-                    else:
-                        tujuan_query = urllib.parse.quote_plus(wilayah_acara)
-                        
-                    maps_url = f"https://www.google.com/maps/dir/?api=1&origin={st.session_state.planner_lat},{st.session_state.planner_lng}&destination={tujuan_query}"
-                    st.markdown(f"[Buka Rute di Google Maps]({maps_url})")
-                    st.markdown("---")
+            st.info("Tidak ditemukan event yang sesuai dengan kriteria filter.")
