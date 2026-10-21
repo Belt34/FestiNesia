@@ -76,7 +76,7 @@ def recommend_events(wilayah=None, keyword=""):
 page = st.session_state.active_tab
 
 if page == "Beranda":
-    st.title("Selamat Datang di FestiNesia 🎭")
+    st.title("FestiNesia")
     st.caption("Platform informasi pergelaran seni, budaya, dan festival lokal.")
     
     # Deskripsi Nilai Tambah Aplikasi & Konsep 3A Pariwisata
@@ -87,33 +87,33 @@ if page == "Beranda":
 
         Dirancang khusus untuk para pencinta seni dan penjelajah budaya, FestiNesia mengintegrasikan **Konsep 3A** 
         pariwisata ke dalam genggamanmu:
-        - 🎭 **Atraksi:** Temukan beragam kurasi acara seni dan festival menarik.
-        - 📍 **Aksesibilitas:** Dapatkan rekomendasi terdekat dan navigasi rute instan langsung ke lokasi via Google Maps.
-        - 🛋️ **Amenitas:** Nikmati kemudahan eksplorasi fasilitas pendukung dan titik menarik di sekitar tempat acara secara langsung melalui peta.
+        -  **Atraksi:** Temukan beragam kurasi acara seni dan festival menarik.
+        -  **Aksesibilitas:** Dapatkan rekomendasi terdekat dan navigasi rute instan langsung ke lokasi via Google Maps.
+        -  **Amenitas:** Nikmati kemudahan eksplorasi fasilitas pendukung dan titik menarik di sekitar tempat acara secara langsung melalui peta.
 
         Mulai jelajahi jadwal acara atau susun rencana perjalanan budayamu dengan mudah melalui menu navigasi di bawah ini!
         """
     )
     
     st.markdown("---")
-    st.subheader("🚀 Navigasi Cepat")
+    st.subheader(" Navigasi Cepat")
     st.write("Silakan pilih menu di bawah ini untuk mulai menjelajahi acara atau merencanakan perjalanan budayamu:")
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        if st.button("🗺️ Jelajah Semua Event", use_container_width=True):
+        if st.button(" Jelajah Semua Event", use_container_width=True):
             st.session_state.active_tab = "Jelajah Event"
             st.rerun()
     with col_btn2:
-        if st.button("🧭 Buka Trip Planner", use_container_width=True):
+        if st.button(" Buka Trip Planner", use_container_width=True):
             st.session_state.active_tab = "Trip Planner"
             st.rerun()
             
     st.markdown("---")
-    st.info("💡 **Tips:** Gunakan **Trip Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah lengkap dengan rute Google Maps!")
+    st.info(" **Tips:** Gunakan **Trip Planner** untuk mencari rekomendasi pertunjukan spesifik berdasarkan minat dan wilayah lengkap dengan rute Google Maps!")
 
 elif page == "Jelajah Event":
-    if st.button("🏠 Kembali ke Beranda"):
+    if st.button(" Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
         st.rerun()
         
@@ -168,14 +168,14 @@ elif page == "Jelajah Event":
                 st.button("Selanjutnya ➡️", on_click=next_page, disabled=(st.session_state.jelajah_page == total_pages), use_container_width=True)
 
 elif page == "Trip Planner":
-    if st.button("🏠 Kembali ke Beranda"):
+    if st.button(" Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
         st.rerun()
         
     st.title("Trip Planner - Cultural Route")
     st.write("Rencanakan kunjungan ke tempat acara seni budaya berdasarkan minat dan lokasimu.")
     
-    st.subheader("📍 Deteksi Lokasi Real-Time")
+    st.subheader(" Deteksi Lokasi Real-Time")
     location = streamlit_geolocation()
     
     user_lat, user_lng = None, None
@@ -232,10 +232,10 @@ elif page == "Trip Planner":
                     tanggal_val = row.get('tanggal_kegiatan', row.get('waktu', row.get('bulan', '-')))
                     
                     st.info(f"**{nama_event}**")
-                    st.write(f"🏛️ **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
-                    st.write(f"📍 **Wilayah:** {wilayah_acara}")
-                    st.write(f"📅 **Tanggal:** {tanggal_val}")
-                    st.write(f"🎭 **Kesenian:** {row.get('jenis_kesenian', '-')}")
+                    st.write(f" **Tempat:** {tempat_acara if tempat_acara and tempat_acara.lower() != 'nan' else '-'}")
+                    st.write(f" **Wilayah:** {wilayah_acara}")
+                    st.write(f" **Tanggal:** {tanggal_val}")
+                    st.write(f" **Kesenian:** {row.get('jenis_kesenian', '-')}")
                     
                     if tempat_acara and tempat_acara.lower() != 'nan':
                         tujuan_query = urllib.parse.quote_plus(f"{tempat_acara}, {wilayah_acara}")
@@ -243,5 +243,5 @@ elif page == "Trip Planner":
                         tujuan_query = urllib.parse.quote_plus(wilayah_acara)
                         
                     maps_url = f"https://www.google.com/maps/dir/?api=1&origin={st.session_state.planner_lat},{st.session_state.planner_lng}&destination={tujuan_query}"
-                    st.markdown(f"[🗺️ Buka Rute di Google Maps]({maps_url})")
+                    st.markdown(f"[ Buka Rute di Google Maps]({maps_url})")
                     st.markdown("---")
