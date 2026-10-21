@@ -33,13 +33,13 @@ st.markdown("""
         color: #E65100 !important;
     }
 
-    /* 4. Top Bar Streamlit (Senada dengan Background Utama) */
+    /* 4. Top Bar Streamlit */
     header[data-testid="stHeader"] {
         background-color: #FFF3E0 !important;
         border-bottom: 2px solid #FF6600;
     }
 
-    /* 5. Custom Dropdown & Input Box (Latar Putih Kontras) */
+    /* 5. Custom Dropdown & Input Box */
     div[data-baseweb="select"] > div, 
     div[data-baseweb="input"] > div,
     div[data-baseweb="base-input"],
@@ -50,7 +50,6 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* Warna Teks di dalam Input / Dropdown */
     div[data-baseweb="select"] *, 
     div[data-baseweb="input"] *,
     input {
@@ -58,7 +57,6 @@ st.markdown("""
         background-color: transparent !important;
     }
 
-    /* Menu Popover Pilihan Dropdown */
     div[data-baseweb="popover"], 
     ul[data-baseweb="menu"] {
         background-color: #FFFFFF !important;
@@ -76,7 +74,7 @@ st.markdown("""
         color: #FF6600 !important;
     }
 
-    /* 6. Custom Tombol Utama & Widget Lokasi (Latar Putih dengan Border Oranye) */
+    /* 6. Custom Tombol Utama & Widget Lokasi */
     div.stButton > button, 
     button[title="Get Location"],
     .stButton button {
@@ -90,7 +88,7 @@ st.markdown("""
 
     div.stButton > button:hover,
     button[title="Get Location"]:hover {
-        background-color: #FFE0B2 !important; /* Sedikit lebih gelap saat di-hover */
+        background-color: #FFE0B2 !important;
         color: #E65100 !important;
         border-color: #E65100 !important;
     }
@@ -104,7 +102,7 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* 8. Expander / Card Container (Latar Putih di atas Background Krem) */
+    /* 8. Expander / Card Container */
     .streamlit-expanderHeader {
         background-color: #FFFFFF !important;
         color: #333333 !important;
@@ -135,7 +133,8 @@ def reset_jelajah_page():
     st.session_state.jelajah_page = 1
 
 def prev_page():
-    st.session_state.jelajah_page -= 1
+    if st.session_state.jelajah_page > 1:
+        st.session_state.jelajah_page -= 1
 
 def next_page():
     st.session_state.jelajah_page += 1
@@ -156,7 +155,7 @@ def load_data():
 
 df = load_data()
 
-# 3. Fungsi Rekomendasi
+# 3. Fungsi Rekomendasi / Pencarian
 def recommend_events(wilayah=None, keyword=""):
     filtered_df = df.copy()
     if wilayah and wilayah != "Semua":
@@ -207,7 +206,7 @@ if page == "Beranda":
             st.session_state.active_tab = "Trip Planner"
             st.rerun()
 
-# --- 2. HALAMAN JELAJAH EVENT ---
+# --- 2. HALAMAN JELAJAH EVENT (LENGKAP) ---
 elif page == "Jelajah Event":
     if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
@@ -217,9 +216,66 @@ elif page == "Jelajah Event":
     st.caption("Temukan seluruh daftar pergelaran seni dan festival di Indonesia.")
     st.markdown("---")
     
-    st.write("")
+    # Filter dan Pencarian Event
+    col_search, col_wilayah = st.columns([2, 1])
+    with col_search:
+        keyword = st.text_input("🔍 Cari Event / Jenis Seni:", placeholder="Contoh: Tari, Musik, Karnaval...")
+    with col_wilayah:
+        daftar_wilayah = ["Semua"]
+        if not df.empty and 'wilayah' in df.columns:
+            daftar_wilayah += sorted(df['wilayah'].dropna().unique().tolist())
+        wilayah_pilihan = st.selectbox("📍 Pilih Wilayah:", daftar_wilayah)
+        
+    results = recommend_events(
+        wilayah=None if wilayah_pilihan == "Semua" else wilayah_pilihan,
+        keyword=keyword
+    )
+    
+    if not results.empty:
+        # Pagination Setup (10 Event per Halaman)
+        items_per_page = 10
+        total_items = len(results)
+        total_pages = math.ceil(total_items / items_per_page)
+        
+        # Validasi batas halaman
+        if st.session_state.jelajah_page > total_pages:
+            st.session_state.jelajah_page = 1
+            
+        start_idx = (st.session_state.jelajah_page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        page_results = results.iloc[start_idx:end_idx]
+        
+        st.write(f"Menampilkan **{start_idx + 1} - {min(end_idx, total_items)}** dari **{total_items}** event:")
+        
+        # Tampilkan List Card Event
+        for idx, row in page_results.iterrows():
+            nama = row.get('nama_kegiatan', row.iloc[0])
+            wilayah = row.get('wilayah', 'Indonesia')
+            jenis = row.get('jenis_kesenian', '-')
+            penyelenggara = row.get('penyelenggara', '-')
+            
+            with st.expander(f"🎭 {nama} ({wilayah})"):
+                st.write(f"**Jenis Kesenian:** {jenis}")
+                st.write(f"**Wilayah:** {wilayah}")
+                st.write(f"**Penyelenggara:** {penyelenggara}")
+                query_maps = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(nama) + ' ' + str(wilayah))}"
+                st.markdown(f"[🗺️ Buka Rute di Google Maps]({query_maps})")
+                
+        # Kontrol Pagination
+        st.markdown("---")
+        col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
+        with col_p1:
+            if st.session_state.jelajah_page > 1:
+                st.button("◀ Halaman Sebelumnya", on_click=prev_page)
+        with col_p2:
+            st.write(f"<p style='text-align: center;'>Halaman {st.session_state.jelajah_page} dari {total_pages}</p>", unsafe_allow_html=True)
+        with col_p3:
+            if st.session_state.jelajah_page < total_pages:
+                st.button("Halaman Selanjutnya ▶", on_click=next_page)
+    else:
+        st.info("Tidak ditemukan event yang sesuai dengan pencarianmu.")
 
-# --- 3. HALAMAN TRIP PLANNER ---
+# --- 3. HALAMAN TRIP PLANNER (LENGKAP) ---
 elif page == "Trip Planner":
     if st.button("← Kembali ke Beranda"):
         st.session_state.active_tab = "Beranda"
@@ -233,7 +289,10 @@ elif page == "Trip Planner":
     with col1:
         kategori_minat = st.selectbox("Pilih Jenis Kesenian / Minat:", ["Semua", "Seni Tari", "Seni Musik", "Seni Teater", "Seni Rupa", "Karnaval / Budaya"])
     with col2:
-        wilayah_pilihan = st.selectbox("Wilayah / Kota:", ["Semua", "Jakarta", "Bandung", "Yogyakarta", "Bali", "Surabaya"])
+        daftar_wilayah = ["Semua"]
+        if not df.empty and 'wilayah' in df.columns:
+            daftar_wilayah += sorted(df['wilayah'].dropna().unique().tolist())
+        wilayah_pilihan = st.selectbox("Wilayah / Kota:", daftar_wilayah)
         
     if st.button("Buat Rencana Kunjungan", use_container_width=True):
         st.success("Rencana perjalanan berhasil dibuat!")
