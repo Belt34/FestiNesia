@@ -11,9 +11,9 @@ st.set_page_config(page_title="FestiNesia - Cultural & Art Events", layout="wide
 # --- KUSTOMISASI TAMPILAN / THEME (CSS) ---
 st.markdown("""
     <style>
-    /* 1. Latar Belakang Aplikasi & Warna Teks Utama */
+    /* 1. Latar Belakang Aplikasi (Oranye Krem Lembut dari Header) */
     .stApp {
-        background-color: #FFFFFF !important;
+        background-color: #FFF3E0 !important;
         color: #333333 !important;
     }
 
@@ -33,13 +33,13 @@ st.markdown("""
         color: #E65100 !important;
     }
 
-    /* 4. Top Bar Streamlit */
+    /* 4. Top Bar Streamlit (Senada dengan Background Utama) */
     header[data-testid="stHeader"] {
         background-color: #FFF3E0 !important;
         border-bottom: 2px solid #FF6600;
     }
 
-    /* 5. FIX DROPDOWN & INPUT BOX (Ganti Warna Hitam ke Putih-Oranye) */
+    /* 5. Custom Dropdown & Input Box (Latar Putih Kontras) */
     div[data-baseweb="select"] > div, 
     div[data-baseweb="input"] > div,
     div[data-baseweb="base-input"],
@@ -76,7 +76,7 @@ st.markdown("""
         color: #FF6600 !important;
     }
 
-    /* 6. FIX TOMBOL & BUTTON LOKASI GEOLOCATION */
+    /* 6. Custom Tombol Utama & Widget Lokasi (Latar Putih dengan Border Oranye) */
     div.stButton > button, 
     button[title="Get Location"],
     .stButton button {
@@ -90,32 +90,32 @@ st.markdown("""
 
     div.stButton > button:hover,
     button[title="Get Location"]:hover {
-        background-color: #FFF3E0 !important;
+        background-color: #FFE0B2 !important; /* Sedikit lebih gelap saat di-hover */
         color: #E65100 !important;
         border-color: #E65100 !important;
     }
 
-    /* 7. INFO BOX & ALERT CONTAINER */
+    /* 7. Info Box & Alert Container */
     div[data-testid="stAlert"],
     div[data-baseweb="notification"] {
-        background-color: #FFF3E0 !important;
+        background-color: #FFE0B2 !important;
         color: #D84315 !important;
         border: 1px solid #FFB74D !important;
         border-radius: 8px !important;
     }
 
-    /* 8. EXPANDER / CARD CONTAINER */
+    /* 8. Expander / Card Container (Latar Putih di atas Background Krem) */
     .streamlit-expanderHeader {
-        background-color: #FAFAFA !important;
+        background-color: #FFFFFF !important;
         color: #333333 !important;
-        border: 1px solid #E0E0E0 !important;
+        border: 1px solid #FFE0B2 !important;
         border-left: 4px solid #FF6600 !important;
         border-radius: 6px !important;
     }
     
     div[data-testid="stExpanderDetails"] {
         background-color: #FFFFFF !important;
-        border: 1px solid #E0E0E0 !important;
+        border: 1px solid #FFE0B2 !important;
         border-top: none !important;
         border-radius: 0 0 6px 6px !important;
     }
@@ -229,7 +229,6 @@ elif page == "Trip Planner":
     st.caption("Rencanakan kunjungan ke tempat acara seni budaya berdasarkan minat dan lokasimu.")
     st.markdown("---")
     
-    # Form Perencanaan Trip Planner
     col1, col2 = st.columns(2)
     with col1:
         kategori_minat = st.selectbox("Pilih Jenis Kesenian / Minat:", ["Semua", "Seni Tari", "Seni Musik", "Seni Teater", "Seni Rupa", "Karnaval / Budaya"])
